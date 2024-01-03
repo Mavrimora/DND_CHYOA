@@ -1,0 +1,2984 @@
+#include <iostream>
+#include <cstdlib>
+#include <vector> 
+#include <fstream>
+#include <string> 
+#include <istream> 
+#include <string.h>
+#include <chrono>
+#include <thread>
+using namespace std::this_thread;
+using namespace std;
+using namespace std::chrono;
+
+// NOTES
+// Enemy stats not properly represented by tempEnemy in dungeonSwitchCase
+// add tempEnemy = *enemy and *enemy = tempEnemy to necessary areas of dungeonSwitchCase 
+// add strength check to return from goblin pit that repeats after each fail (DONE)
+// add final boss room (DONE)
+// add gameOver functionality and save datapoints long term in saveFunc (NEARLY DONE)
+// uzumaki damage count is not working properly; is not getting set at 7 or even creating a file
+// ???
+// profit
+//mana crystals
+//random chance to get whenever you loot either chests or defeated enemies
+//can use them in combat
+
+//player class
+class Player {
+public:
+    string origin;
+    string Class;
+    string name;
+    vector<string> spellBook = { "Firebolt", "Chromatic_Orb" };
+    string abilities;
+    vector<string> inventory = {"Limb","Staff"};
+
+    //stats
+    int HP = 90;
+    int AC = 12;
+
+    int strength = 8;
+    int dexterity = 16;
+    int constitution = 17;
+    int intelligence = 22;
+    int wisdom = 8;
+    int charisma = 8;
+
+    int spellSlots = 2;
+
+    //set AC based on dex
+    void setAC()
+    {
+        AC = 10 + ((dexterity - 10) / 2);
+    }
+    //set HP based on const.
+    void setHP()
+    {
+        if (Class == "Wizard")
+        {
+            HP = 6 + ((constitution - 10) / 2);
+        }
+    }
+
+    void displayMeleeWeapons()
+    {
+        if (inventory.size() < 1)
+        {
+            cout << "Inventory empty!" << endl;
+        }
+        else
+        {
+            cout << "-----------Melee-----------" << endl;
+            for (string i : inventory)
+            {
+                if (i == "Limb" || i == "Staff" || i == "Longsword" || i == "Javelin")
+                {
+                    cout << i << endl;
+                }
+            }
+        }
+    }
+
+    void displayRangedWeapons()
+    {
+        if (inventory.size() < 1)
+        {
+            cout << "Inventory empty!" << endl;
+        }
+        else
+        {
+            cout << "-----------Ranged-----------" << endl;
+            for (string i : inventory)
+            {
+                if (i == "Longbow" || i == "Javelin" || i == "Dagger")
+                {
+                    cout << i << endl;
+                }
+            }
+        }
+    }
+
+    void displaySpells()
+    {
+        if (spellBook.size() < 1)
+        {
+            cout << "Spell book empty!" << endl;
+        }
+        else
+        {
+            cout << "----------Spells----------" << endl;
+            for (string i : spellBook)
+            {
+                cout << i << endl;
+            }
+            cout << endl;
+        }
+    }
+
+    void displayPlayerStats()
+    {
+        cout << "----------Player Stats----------" << endl;
+        cout << "Player HP: " << HP << endl;
+        cout << "Player Armour Class: " << AC << endl;
+        if (Class == "Wizard")
+        {
+            cout << "Player Spell Slots: " << spellSlots << endl;
+        }
+        cout << "-----------Attributes-----------" << endl;
+        cout << "Strength: " << strength << "\nDexterity: " << dexterity << "\nConstitution: " << constitution << "\nIntelligence: " << intelligence << "\nWisdom: " << wisdom << "\nCharisma: " << charisma << endl;
+        cout << "--------------------------------" << endl;
+    }
+
+};
+
+class Enemy {
+public:
+    string name;
+    int HP = 10;
+    int AC = 10;
+    vector<string> spellBook;
+    string abilities = "";
+    vector<string> inventory;
+
+    //enemy stats
+    int strength = 10;
+    int dexterity = 10;
+    int constitution = 10;
+    int intelligence = 10;
+    int wisdom = 10;
+    int charisma = 10;
+
+};
+
+void dungeonSwitchCases(Player* player, Enemy* enemy, int part);
+void createPlayer(Player* player);
+void setAttributes(Player* player);
+void setClass(Player* player);
+void setOrigin(Player* player);
+void setEnemy(Enemy* enemy, string enemyName);
+void chronoTrigger(string length);
+int meleeAttack(Player* player, Enemy* enemy, string weapon);
+int RangedAttack(Player* player, Enemy* enemy, string weapon);
+int castSpell(Player* player, Enemy* enemy, string spell);
+int diceRoller(int diefaces, int dieCount);
+char rollInitiative(Player* player, Enemy* enemy);
+void enemyTurn(Player* player, Enemy* enemy);
+char combatScreen(Player* player, Enemy* enemy);
+void setStartingData(); 
+void saveFunc(string saveType, int data);
+int getSaveData(string fileName);
+int dataProtection(int max);
+void gameOver(Player* player, Enemy* enemy);
+
+int main()
+{
+    Player player;
+    Enemy enemy;
+
+    createPlayer(&player);
+    setAttributes(&player);
+    setOrigin(&player);
+    setClass(&player);
+    setStartingData();
+
+    //begin dungeon
+    cout << player.name << ","; chronoTrigger("longPause"); cout << " this journey before you is a treacherous one;"; chronoTrigger("longPause"); cout << " nothing can pass the veil of this dungeon and return."; chronoTrigger("longPause");
+    cout << " One touch of it and you are swallowed whole"; chronoTrigger("longDotPause"); cout << " Many adventurers before you have delved within this dungeon and never returned."; chronoTrigger("longDotPause");
+    cout << " We must imagine that somehow, somewhere within this dungeon is an escape;"; chronoTrigger("longPause"); cout << " some safe exit through which the daring can return to our world, "; chronoTrigger("longPause");
+    cout << "carrying,"; chronoTrigger("longPause"); cout << " one can hope,"; chronoTrigger("longPause"); cout << " some treasure or prize worthy of the trial"; chronoTrigger("longDotPause"); cout << "Ah,"; chronoTrigger("longPause");
+    cout << " I digress."; chronoTrigger("longPause"); cout << " I just want to tell you, "; chronoTrigger("longPause"); cout << player.name << ","; chronoTrigger("longPause"); cout << " that turning back now does not speak ill of your character.";
+    chronoTrigger("longPause"); cout << " But, "; chronoTrigger("longPause"); cout << "if you must proceed"; chronoTrigger("longDotPause"); cout << " then I wish for you every fortune and blessing in your journey." << endl; chronoTrigger("longPause");
+    dungeonSwitchCases(&player, &enemy, 1);
+}
+
+void dungeonSwitchCases(Player* player, Enemy* enemy, int part)
+{
+    Player tempPlayer = *player;
+    Enemy tempEnemy = *enemy;
+    switch (part)
+    {
+
+    case 1: //beginning of dungeon
+    {
+        int input;
+        cout << "[What do you do?]\n1. Touch the shadowy veil\n2. Walk away and never return\n3. 'Why are you here, old man?'" << endl;
+        input = dataProtection(3);
+        switch (input)
+        {
+        case 1: //enter dungeon
+        {
+            cout << "You walk through the threshold."; chronoTrigger("pause"); cout << " The veil is cold to the touch,"; chronoTrigger("pause"); cout << " like a wall of winter fog."; chronoTrigger("pause");
+            cout << " In one moment you are in the fog,"; chronoTrigger("pause"); cout << " in the next you are standing in a room of uniform,"; chronoTrigger("pause"); cout << " dark stone."; chronoTrigger("pause");
+            cout << " The world beyond the doorway behind you is blocked off by a shadowy veil."; chronoTrigger("longPause"); cout << " There is only foward now." << endl;
+            dungeonSwitchCases(&tempPlayer, &tempEnemy, 2);
+            break;
+        }
+        case 2: //turn down dungeon
+        {
+            cout << "Alas"; chronoTrigger("dotPause"); cout << " this is a challenge even to the demigods. No shame to you, " << tempPlayer.name << ""; chronoTrigger("longDotPause"); cout << " I wish you good luck in your life."; chronoTrigger("longPause");
+            cout << " And may it be a long one." << endl; chronoTrigger("longPause");
+            gameOver(&tempPlayer, &tempEnemy);
+            break;
+        }
+        case 3: //question old man
+        {
+            chronoTrigger("pause");
+            cout << "Old?" << endl; chronoTrigger("longDotPause"); cout << "I suppose I am."; chronoTrigger("longPause"); cout << " I stay by this veil,"; chronoTrigger("pause"); cout << " so I suppose this is my home";
+            chronoTrigger("dotPause"); cout << "I've been waiting here for some time,"; chronoTrigger("pause"); cout << " since this is the only known path into or out of the dungeon."; chronoTrigger("longPause");
+            cout << " A long time ago,"; chronoTrigger("longPause"); cout << " my son touched this veil."; chronoTrigger("longPause"); cout << " I know what you must be thinking,"; chronoTrigger("longPause");
+            cout << " but the nature of the dungeon is not fully understood."; chronoTrigger("longPause"); cout << " There may be some means; somesuch mystery known only within the place that could be holding him,"; chronoTrigger("longPause"); cout << " alive." << endl;
+            chronoTrigger("longPause"); cout << "A foolish dream,"; chronoTrigger("longPause"); cout << " I know." << endl;
+            chronoTrigger("longPause"); cout << "But if you do decide to enter this enigma,"; chronoTrigger("longPause"); cout << " you do not know how much it would mean to me if you could find Jack,"; chronoTrigger("longPause");
+            cout << " or tell me his whereabouts within,"; chronoTrigger("longPause"); cout << " or his fate." << endl;
+            dungeonSwitchCases(&tempPlayer, &tempEnemy, 1);
+            break;
+        }
+        }
+        break;
+    }
+    case 2: //first room of dungeon
+    {
+        int input;
+        cout << "In front of you the room has two pathways.\nTo the left there is a door, and to the right the hallway continues down into darkness. The door, as well as its handle, seem to be made of the same onyx-colored stone. Strangely, every area of the dungeon is gloomily lit by unseen sources of light";
+        chronoTrigger("pausePlusEL");
+        cout << "[What do you do?]\n1. Go through the door on the left\n2. Go through hallway" << endl;
+        input = dataProtection(2);
+        switch (input)
+        {
+        case 1:
+        {
+            dungeonSwitchCases(&tempPlayer, &tempEnemy, 5);
+            break;
+        }
+        case 2:
+        {
+            tempPlayer = *player;
+            tempEnemy = *enemy;
+            cout << "You tread through the gloomy hallway, and as your footsteps are echoing around you the floor suddenly cracks and collapses, taking you down with it!" << endl;
+            cout << "You fall into a dark pit, the hole you fell from only 8ft above you. You hear growling somewhere in the darkness, and a goblin emerges!" << endl;
+            setEnemy(&tempEnemy, "Goblin");
+            char combatConclusion;
+            if (rollInitiative(&tempPlayer, &tempEnemy) == 'p')
+            {
+                combatConclusion = combatScreen(&tempPlayer, &tempEnemy);
+                combatConclusion = tolower(combatConclusion);
+                //use combatConclusion to determine if run ends or to give loot and let player proceed
+            }
+            else
+            {
+                enemyTurn(&tempPlayer, &tempEnemy);
+                combatConclusion = combatScreen(&tempPlayer, &tempEnemy);
+                combatConclusion = tolower(combatConclusion);
+            }
+            if (combatConclusion == 'p')
+            {
+                cout << "[Combat ended. " << tempPlayer.name << " is victorious.]" << endl;
+                chronoTrigger("longPause");
+                saveFunc("Slain.txt", 1);
+
+                cout << "The Goblin dropped: [1 x Spear]" << endl;
+                tempPlayer.inventory.push_back("Spear");
+                saveFunc("Looted.txt", 1);
+                *player = tempPlayer;
+
+                dungeonSwitchCases(&tempPlayer, &tempEnemy, 3);
+            }
+            else if (combatConclusion == 'e')
+            {
+                cout << "[Combat ended. " << tempEnemy.name << " is victorious.]" << endl;
+                chronoTrigger("longPause");
+                cout << "[" << tempPlayer.name << " has died.]" << endl;
+                saveFunc("Deaths.txt", 1);
+                gameOver(&tempPlayer, &tempEnemy);
+                //player is dead; game is over
+            }
+            else
+            {
+                cout << "Error in combat conclusion." << endl;
+            }
+            break;
+        }
+        }
+    }
+    case 3: //after defeating goblin; need to add loot gain. 
+    {
+        int input;
+        cout << "[What do you do?]\n1. Go back up (relies on Strength)." << endl;
+        input = dataProtection(1);
+        if (input == 1)
+        {
+            //add constant strength checks here in order to do this lol
+            chronoTrigger("pause");
+            cout << "Challenge Rating: 10!" << endl;
+            chronoTrigger("pause");
+            cout << "You stack up the pieces of floor that crumbled down with you and use them to reach the lip of the pit,"; chronoTrigger("pause"); cout << " then,"; chronoTrigger("pause"); cout << " after mustering your strength,";
+            chronoTrigger("pause"); cout << " you grab the remnants of the upper floor,"; chronoTrigger("pause"); cout << " and roll a"; chronoTrigger("longDotPause");
+            int roll = diceRoller(20, 1) + (tempPlayer.strength - 10) / 2;
+            cout << roll << "!" << endl; chronoTrigger("longPause"); cout << endl;
+            if (roll > 10)
+            {
+                cout << "successfully pull yourself up from the pit!" << endl;
+                chronoTrigger("longPause");
+                cout << "You have successfully returned to the upper floor." << endl;
+                dungeonSwitchCases(&tempPlayer, &tempEnemy, 4);
+            }
+            else
+            {
+                cout << "use all your upper-body strength,"; chronoTrigger("pause"); cout << "but it isn't enough!"; chronoTrigger("pause"); cout << " You fall back down onto the stack of stones,"; chronoTrigger("pause"); cout << " slightly more exhausted." << endl;
+                dungeonSwitchCases(&tempPlayer, &tempEnemy, 3);
+            }
+            break;
+        }
+    }
+    case 4: //going back to first room after defeating goblin 
+    {
+        int input;
+        cout << "In front of you the room has two pathways.\nTo the left there is a door, and to the right the hallway continues down into darkness. The door, as well as its handle, seem to be made of the same onyx-colored stone. Strangely, every area of the dungeon is gloomily lit by unseen sources of light";
+        chronoTrigger("pausePlusEL");
+        cout << "[What do you do?]\n1. Go through the door on the left\n2. Go through hallway" << endl;
+        input = dataProtection(2);
+        switch (input)
+        {
+        case 1:
+        {
+            dungeonSwitchCases(&tempPlayer, &tempEnemy, 5);
+            break;
+        }
+        case 2:
+        {
+            int input;
+            cout << "The hallway has become untraversable due to the pit that now spans across a portion of it." << endl;
+            cout << "[What do you do?]\n1. Go back." << endl;
+            cin >> input;
+            switch (input)
+            {
+            case 1:
+            {
+                dungeonSwitchCases(&tempPlayer, &tempEnemy, 4);
+                break;
+            }
+            }
+        }
+        }
+    }
+    case 5: //
+    {
+        int input;
+        cout << "The door leads down a long corridor that splits off into two long paths." << endl;
+        cout << "[What do you do?]\n1. Take the left path\n2. Take the right path" << endl;
+        input = dataProtection(2);
+        switch (input)
+        {
+        case 1:
+        {
+            dungeonSwitchCases(&tempPlayer, &tempEnemy, 6);
+            break;
+        }
+        case 2:
+        {
+            int input;
+            cout << "The door leads to a circular hallway. As you are taking the path, you take your next step and suddenly feel the floor give with your weight,"; chronoTrigger("longPause"); cout << " and the subtle clicking of a mechanical trigger can be heard in the walls!" << endl;
+            cout << "[What do you do?]\n1. Try to break the mechanism under the pressure plate (relies on Strength)\n2. Slowly remove your foot from the pressure plate (relies on Dexterity)" << endl;
+            input = dataProtection(2);
+            switch (input)
+            {
+            case 1:
+            {
+                cout << "Challenge Rating: 12!" << endl;
+                int roll = diceRoller(20, 1) + (tempPlayer.strength - 10) / 2;
+                cout << "You quickly attempt to overwhelm the pressure mechanism with a sudden burst of force from your foot,"; chronoTrigger("longPause"); cout << " you roll a"; chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                chronoTrigger("pause");
+                if (roll >= 12)
+                {
+                    cout << "You press down on the pressure plate with all your weight and strength,"; chronoTrigger("longPause"); cout << " and you feel the mechanism catch,"; chronoTrigger("pause"); cout << " the plate stuck in place."; chronoTrigger("longPause");
+                    cout << " Lifting your foot from the plate seems to cause no response in the trap. "; chronoTrigger("pause"); cout << "So,"; chronoTrigger("pause"); cout << " you continue down the hallway." << endl; chronoTrigger("pause");
+                    //goes to next room, which is the same as where the other route takes you
+                    dungeonSwitchCases(&tempPlayer, &tempEnemy, 8);
+                    break;
+                }
+                else
+                {
+                    cout << "You press down on the pressure plate with all your weight and strength,"; chronoTrigger("longPause"); cout << "but the mechanism does not break!"; chronoTrigger("longPause");
+                    cout << "Spikes of silvery metal burst through the stone walls and ceiling all across the hallway in a criss-cross pattern,"; chronoTrigger("longPause"); cout << "skewering everything in their path,"; chronoTrigger("longPause");
+                    cout << "including you." << endl;
+                    chronoTrigger("longPause");
+                    cout << "[" << tempPlayer.name << " has died.]" << endl;
+                    saveFunc("Deaths.txt", 1);
+                    gameOver(&tempPlayer, &tempEnemy);
+                    //player is killed
+                    break;
+                }
+            }
+            case 2:
+            {
+                cout << "Challenge Rating: 14!" << endl;
+                int roll = diceRoller(20, 1) + (tempPlayer.dexterity - 10) / 2;
+                cout << "You attempt to dexterously remove yourself from the pressure plate at a rate too slow to trigger the mechanism,"; chronoTrigger("longPause"); cout << " you roll a"; chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                chronoTrigger("pause");
+                if (roll >= 14)
+                {
+                    cout << "You slowly lift yourself from the plate,"; chronoTrigger("longPause"); cout << " and after a small eternity,"; chronoTrigger("longPause"); cout << " your foot is free from the plate."; chronoTrigger("pause");
+                    cout << " Amazingly,"; chronoTrigger("pause"); cout << "the process does not involve anything going wrong."; ; chronoTrigger("pause"); cout << " Now aware of the pressure plate's existence,"; ; chronoTrigger("pause");
+                    cout << " you cross the hallway without triggering it using a simple leap." << endl;
+                    chronoTrigger("pause");
+                    //goes to next room, which is the same as where the other route takes you
+                    dungeonSwitchCases(&tempPlayer, &tempEnemy, 8);
+                    break;
+                }
+                else
+                {
+                    cout << "You slowly lift yourself from the plate,"; chronoTrigger("longPause"); cout << " and after a small eternity,"; chronoTrigger("longPause"); cout << "your foot is free from the plate."; chronoTrigger("pause");
+                    cout << "However,"; chronoTrigger("longPause"); cout << " you hear the mechanism give one final click." << endl; chronoTrigger("pause");
+                    cout << "Spikes of silvery metal burst through the stone walls and ceiling all across the hallway in a criss-cross pattern,"; chronoTrigger("longPause"); cout << "skewering everything in their path,"; chronoTrigger("longPause");
+                    cout << "including you." << endl;
+                    chronoTrigger("longPause");
+                    cout << "[" << tempPlayer.name << " has died.]" << endl;
+                    saveFunc("Deaths.txt", 1);
+                    gameOver(&tempPlayer, &tempEnemy);
+                    //player is killed
+                    break;
+                }
+            }
+            }
+        }
+        }
+    }
+    case 6:
+    {
+        int input;
+        cout << "The left path leads to a circular room. In the center of a the room is a large chest made of iron and oak. On the opposite side of the room is another hallway." << endl;
+        cout << "[What do you do?]\n1. Loot the chest\n2. Exit the room through the hallway" << endl;
+        input = dataProtection(2);
+        switch (input)
+        {
+        case 1:
+        {
+            cout << "You lift open the heavy wooden lid and";
+            chronoTrigger("longDotPause");
+            int odds = diceRoller(2, 1);
+            if (odds == 1)
+            {
+                int input;
+                cout << "as you reach into the chest you oak and iron begin to writhe and bend, coming to life! A maw of teeth reveals itself through the wooden facade, and the entire chest shifts forward, attempting to swallow you whole!" << endl;
+                cout << "[What do you do?]\n 1. Attempt to escape with a Dexterity Saving Throw (At Disadvantage)!" << endl;
+                input = dataProtection(1);
+                if (input == 1)
+                {
+                    cout << "Challenge Rating: 13\nTarget is surprised and rolls at disadvantage (You roll twice and must use the lowest roll of the two)!" << endl;
+                    int roll1 = diceRoller(20, 1) + (tempPlayer.dexterity - 10) / 2;
+                    cout << "You roll a "; chronoTrigger("longDotPause"); cout << roll1; chronoTrigger("pause"); cout << ", and a"; chronoTrigger("longDotPause");
+                    int roll2 = diceRoller(20, 1) + (tempPlayer.dexterity - 10) / 2;
+                    cout << roll2 << "!" << endl;
+                    if (roll1 > roll2)
+                    {
+                        roll1 = roll2;
+                    }
+                    else
+                    {
+                        roll2 = roll1;
+                    }
+
+                    if (roll1 >= 13)
+                    {
+                        chronoTrigger("dotPause"); cout << "You succeed!" << endl;
+                        cout << "You manage to pull away from the mimic in time and its jaw clamps shut on thin air!" << endl; chronoTrigger("pause"); cout << "It has no eyes but it seems to regard you like you're a particularly troublesome treat that managed to slip off its plate." << endl;
+                        setEnemy(&tempEnemy, "Mimic");
+                        char combatConclusion;
+                        if (rollInitiative(&tempPlayer, &tempEnemy) == 'p')
+                        {
+                            combatConclusion = combatScreen(&tempPlayer, &tempEnemy);
+                        }
+                        else
+                        {
+                            enemyTurn(&tempPlayer, &tempEnemy);
+                            combatConclusion = combatScreen(&tempPlayer, &tempEnemy);
+                        }
+
+                        if (combatConclusion == 'p')
+                        {
+                            cout << "[Combat ended. " << tempPlayer.name << " is victorious.]" << endl; chronoTrigger("pause");
+                            cout << "You search the Mimic's maw and find"; chronoTrigger("pausePlusEL"); cout << "[1 x Scroll_Of_Lightning_Bolt]" << endl; chronoTrigger("pause");
+                            saveFunc("Looted.txt", 1);
+                            tempPlayer.spellBook.push_back("Scroll_Of_Lightning_Bolt");
+                            dungeonSwitchCases(&tempPlayer, &tempEnemy, 7);
+                        }
+                        else if (combatConclusion == 'e')
+                        {
+                            cout << "[Combat ended. " << tempEnemy.name << " is victorious.]" << endl;
+                            chronoTrigger("longPause");
+                            cout << "[" << tempPlayer.name << " has died.]" << endl;
+                            saveFunc("Deaths.txt", 1);
+                            gameOver(&tempPlayer, &tempEnemy);
+                            //player is dead; game is over
+                        }
+                        else
+                        {
+                            cout << "Error in combat conclusion." << endl;
+                        }
+
+                    }
+                    else
+                    {
+                        cout << "Before you can gain some distance,"; chronoTrigger("pause"); cout << " the chest leans completely forward,"; chronoTrigger("pause"); cout << " its lid extending grotesquely in order to swallow you whole." << endl;
+                        chronoTrigger("pause"); cout << "Now with its meal trapped within it,"; chronoTrigger("pause"); cout << " the Mimic rights itself again,"; chronoTrigger("pause"); cout << " adjusting its appearance to closely match a mundane chest,";
+                        chronoTrigger("pause"); cout << " and receding its maw back into itself."; chronoTrigger("pause"); cout << " Its lid,"; chronoTrigger("pause"); cout << " however,"; chronoTrigger("pause"); cout << " remains firmly shut.";
+                        chronoTrigger("pause"); cout << " A potent acid,"; chronoTrigger("pause"); cout << " meanwhile,"; chronoTrigger("pause"); cout << " begins to fill the creature's interior." << endl;
+                        chronoTrigger("longPause");
+                        cout << "[" << tempPlayer.name << " has died.]" << endl;
+                        saveFunc("Deaths.txt", 1);
+                        gameOver(&tempPlayer, &tempEnemy);
+                        break;
+                        //player is dead; game is over
+                    }
+                }
+            }
+            else
+            {
+                cout << "You reach into the chest and find loot!"; chronoTrigger("dotPause"); cout << "You find"; chronoTrigger("pausePlusEL"); cout << "[1 x Scroll_Of_Scorching_Ray]" << endl;
+                tempPlayer.spellBook.push_back("Scroll_Of_Scorching_Ray");
+                saveFunc("Looted.txt", 1);
+                dungeonSwitchCases(&tempPlayer, &tempEnemy, 7);
+            }
+            break;
+        }
+        case 2:
+        {
+            //add option to return to previous room
+        }
+        }
+    }
+    case 7:
+    {
+        int input;
+        cout << "You are in a circular room. On the opposite side is another hallway." << endl;
+        cout << "[What do you do?]\n1. Exit the room through the hallway" << endl;
+        input = dataProtection(1);
+        switch (input)
+        {
+        case 1:
+        {
+            dungeonSwitchCases(&tempPlayer, &tempEnemy, 8);
+        }
+        }
+    }
+    case 8:
+    {
+        int input;
+        cout << "The hallway leads into a rectangular room. On the opposite wall is a doorway leading into another room. On the right wall is a door." << endl;
+        cout << "[What do you do?]\n1. Enter the next room\n2. Go through the door on the right" << endl;
+        input = dataProtection(2);
+        switch (input)
+        {
+        case 1:
+        {
+            dungeonSwitchCases(&tempPlayer, &tempEnemy, 9);
+        }
+        case 2:
+        {
+            //maybe make this creature combatable?
+            chronoTrigger("pause");
+            cout << "You grab the door handle,"; chronoTrigger("longPause"); cout << " but as you do so it is ripped out of your hand as the door slams open."; chronoTrigger("longPause"); cout << " On the other side of the doorway is an unseeable darkness,"; chronoTrigger("longPause");
+            cout << " which clashes terribly with the sickly-white thing floating within it."; chronoTrigger("longPause"); cout << " It looks somewhat like a snail shell made of people,"; chronoTrigger("longPause");
+            cout << " a swirling mass of death-paled faces and bodies,"; chronoTrigger("longPause"); cout << " contorted by agony,"; chronoTrigger("longPause"); cout << " bended beyond natural limits into a circular,"; chronoTrigger("longPause");
+            cout << " singular form."; chronoTrigger("longPause"); cout << " Their,"; chronoTrigger("pause"); cout << " or its,"; cout << " eyes regard you for an instant with a mix of pity and shame,"; chronoTrigger("longPause");
+            //damage should be based on number of adventurer's consumed, which starts at, say, 7, and increases each time the player dies to the creature, make damage 70 if this is a oneshot event
+            cout << " and then an unseen force touches your soul,"; chronoTrigger("longPause"); cout << " dealing ";
+            int damage = getSaveData("Uzumaki.txt"); 
+            cout << damage << " necrotic damage." << endl;
+            tempPlayer.HP -= damage;
+            if (tempPlayer.HP <= damage)
+            {
+                cout << "This is enough to strip your soul from your body,"; chronoTrigger("longPause"); cout << " which is then picked up by unseen hands and dragged into the creature." << endl;
+                chronoTrigger("longPause");
+                cout << "[" << tempPlayer.name << " has died.]" << endl;
+                saveFunc("Deaths.txt", 1);
+                saveFunc("Uzumaki.txt", 1); 
+                gameOver(&tempPlayer, &tempEnemy);
+            }
+            else
+            {
+                tempEnemy = *enemy;
+                setEnemy(&tempEnemy, "Maximum_Uzumaki");
+                *enemy = tempEnemy;
+                char combatConclusion;
+                if (rollInitiative(&tempPlayer, &tempEnemy) == 'p')
+                {
+                    combatConclusion = combatScreen(&tempPlayer, &tempEnemy);
+                }
+                else
+                {
+                    enemyTurn(&tempPlayer, &tempEnemy);
+                    combatConclusion = combatScreen(&tempPlayer, &tempEnemy);
+                }
+                //using combatConclusion to determine if run ends or to give loot and let player proceed 
+                if (combatConclusion == 'p')
+                {
+                    cout << "[Combat ended. " << tempPlayer.name << " is victorious.]" << endl;
+                    cout << "The creature begins to break apart,"; chronoTrigger("longPause"); cout << " the individual bodies composing it prying themselves off and falling to the floor,"; chronoTrigger("longPause");
+                    cout << " turning to vapor."; chronoTrigger("longPause"); cout << " The main body loses its levitation and finally falls over,"; chronoTrigger("longPause"); cout << " itself disappearing." << endl;
+                    chronoTrigger("longPause");
+                    cout << "Nothing else appears to lie in the darkness,"; chronoTrigger("longPause"); cout << " so,"; chronoTrigger("longPause"); cout << " you go into the next room." << endl;
+                    chronoTrigger("pause");
+                    saveFunc("Slain.txt", 1);
+                    dungeonSwitchCases(&tempPlayer, &tempEnemy, 9);
+                    //queue death scene
+                }
+                else if (combatConclusion == 'e')
+                {
+                    cout << "[Combat ended. " << tempEnemy.name << " is victorious.]" << endl;
+                    chronoTrigger("longPause");
+                    cout << "After your soul is stripped from your body,"; chronoTrigger("longPause"); cout << " unseen hands drag it into the creature." << endl;
+                    chronoTrigger("longPause"); cout << "The door closes." << endl;
+                    chronoTrigger("longPause");
+                    cout << "[" << tempPlayer.name << " has died.]" << endl;
+                    saveFunc("Deaths.txt", 1);
+                    saveFunc("Uzumaki.txt", 1);
+                    gameOver(&tempPlayer, &tempEnemy);
+                    //player is dead; game is over 
+                }
+                else
+                {
+                    cout << "Error in combat conclusion." << endl;
+                }
+                break;
+            }
+        }
+        }
+    }
+    case 9: //boss room
+    {
+        int input;
+        cout << "The next room is massive;"; chronoTrigger("pause"); cout << " spanning more space than all the previous rooms combined."; chronoTrigger("pause"); cout << " Braziers line the walls," << endl;
+        chronoTrigger("pause"); cout << " brightly illuminating the room despite no visible flames."; chronoTrigger("longPause"); cout << " In the center of the room stands a dapperly dressed individual,"; chronoTrigger("longPause");
+        cout << " leaning on a cane with a grip in the shape of a capital 'R'."; chronoTrigger("pause"); cout << " Similarly,"; chronoTrigger("pause"); cout << " they are wearing a fine tailcoat suit with a boldly-sized capital 'R' on both lapels." << endl;
+        chronoTrigger("pause"); cout << "Lastly,"; chronoTrigger("pause"); cout << " their tophat, "; chronoTrigger("pause"); cout << "unsurprisingly,"; chronoTrigger("pause"); cout << " holds a massive golden 'R' on its face that somehow doesn't tip it over." << endl;
+        chronoTrigger("longPause"); cout << "They tap their cane on the cold stone floor and speak,"; chronoTrigger("longPause"); cout << " 'Well done,"; chronoTrigger("pause"); cout << " well traveled, "; chronoTrigger("pause"); cout << " well prospected.'" << endl;
+        cout << "'You have made it to the end;"; chronoTrigger("pause"); cout << " only one thing remains,"; chronoTrigger("longPause"); cout << " what shall you do,"; chronoTrigger("pause"); cout << " about the Rizzler?'" << endl;
+        chronoTrigger("longPause");
+        cout << "[What do you do?]\n1. Attempt to 'Rizz the Rizzler (relies on Charisma)\n2. Fight them\n" << endl;
+        input = dataProtection(2);
+        switch (input)
+        {
+        case 1:
+        {
+            chronoTrigger("pause");
+            cout << "Challenge Rating: ??" << endl;
+            chronoTrigger("longPause");
+            int roll = diceRoller(20, 1) + (tempPlayer.charisma - 10) / 2;
+            cout << "You engage the Rizzler in dialogue,"; chronoTrigger("pause"); cout << " attempting to surpass their Rizz with your own."; chronoTrigger("pause"); cout << " The two of you trade compliments,"; chronoTrigger("pause");
+            cout << " jokes,"; chronoTrigger("pause"); cout << " and magnetic gestures and smiles,"; chronoTrigger("pause"); cout << " but only one of you can ultimately Rizz the other." << endl;
+            cout << "You roll a"; chronoTrigger("pausePlusEL");
+            cout << roll << "!" << endl;
+            int rizz = getSaveData("Rizzler.txt");
+            if (roll >= rizz) 
+            {
+                chronoTrigger("longPause"); 
+                cout << "'Well,"; chronoTrigger("longPause"); cout << " it seems,"; chronoTrigger("pause"); cout << " I've had my time in the sun." << endl; chronoTrigger("pause"); cout << " There can only be one Rizzler.'" << endl; chronoTrigger("longPause");
+                cout << "Their tophat finally falls off their head with a metallic clack,"; chronoTrigger("pause"); cout << " their head beginning to cave in as their body deteroriates into golden dust." << endl; chronoTrigger("longPause");
+                cout << "As the Rizzler turns to dust,"; chronoTrigger("longPause"); cout << " you feel an unsurpressable compulsion seize your mind."; chronoTrigger("longPause"); cout << " that dapper hat"; chronoTrigger("longPause"); cout << " you must wear it.";
+                chronoTrigger("longPause"); cout << " that fine tailcoat suit,"; chronoTrigger("longPause"); cout << " it would be unthinkable to be seen in anything else." << endl; chronoTrigger("longPause");
+                cout << "After donning your new,"; chronoTrigger("longPause"); cout << " or rather,"; chronoTrigger("longPause"); cout << " your true attire."; chronoTrigger("longPause"); cout << " You grab your cane from the ground and take your place at the center of the room." << endl;
+                chronoTrigger("longPause"); cout << " Awaiting now the next challenger to the title that is now your true name,"; chronoTrigger("longPause"); cout << " 'The Rizzler'."; chronoTrigger("longPause");
+                cout << "[" << tempPlayer.name << " has been lost.]" << endl;
+                saveFunc("Slain.txt", 1);
+                saveFunc("Deaths.txt", 1);
+                gameOver(&tempPlayer, &tempEnemy);
+                //player is lost; game over
+            }
+            else
+            {
+                chronoTrigger("longPause");
+                cout << "You give the contest all the Rizz you can muster,"; chronoTrigger("longPause"); cout << " but as it continues,"; chronoTrigger("pause"); cout << " you feel yourself begin to question more and more";
+                cout << " why you are trying to best someone with such a winning smile." << endl; chronoTrigger("longPause"); cout << " Soon, your entire will to fight has evaporated beneath their Rizz field." << endl; chronoTrigger("longPause");
+                cout << "With your rizz now utterly depleted,"; chronoTrigger("longPause"); cout << " you feel your body begin to deteriorate."; chronoTrigger("longPause"); cout << " the Rizzler gives you a sympathetic grin before your consciousness fully fades." << endl;
+                chronoTrigger("longPause"); cout << "'Your rizz,"; chronoTrigger("longPause"); cout << " modest as it is,"; chronoTrigger("longPause"); cout << " shall be put to great use by the Rizzler."; chronoTrigger("longPause");
+                cout << " I hope that means you can pass on without regret."; chronoTrigger("longPause"); cout << " Farewell." << endl; chronoTrigger("longPause");
+                //player is killed; their rizz is added to the Rizzler's
+                cout << "[" << tempPlayer.name << " has been defeated.]" << endl;
+                saveFunc("Deaths.txt", 1);
+                saveFunc("Rizzler.txt", 1);
+                gameOver(&tempPlayer, &tempEnemy);
+                break;
+            }
+        }
+        case 2:
+        {
+            cout << "'A combat of arms?"; chronoTrigger("longPause"); cout << " Very well."; chronoTrigger("longPause"); cout << " Not my preferred realm of competition,"; chronoTrigger("longPause"); cout << " but I do believe I am competent.'" << endl;
+            chronoTrigger("longPause");
+            setEnemy(&tempEnemy, "Jack The Rizzler");
+            char combatConclusion;
+            if (rollInitiative(&tempPlayer, &tempEnemy) == 'p')
+            {
+                combatConclusion = combatScreen(&tempPlayer, &tempEnemy);
+            }
+            else
+            {
+                enemyTurn(&tempPlayer, &tempEnemy);
+                combatConclusion = combatScreen(&tempPlayer, &tempEnemy);
+            }
+            //using combatConclusion to determine if run ends or to give loot and let player proceed 
+            if (combatConclusion == 'p')
+            {
+                cout << "[Combat ended. " << tempPlayer.name << " is victorious.]" << endl;
+                saveFunc("Slain.txt", 1);
+                gameOver(&tempPlayer, &tempEnemy);
+                //queue death scene 
+            }
+            else if (combatConclusion == 'e')
+            {
+                cout << "[Combat ended. " << tempEnemy.name << " is victorious.]" << endl;
+                chronoTrigger("longPause");
+                cout << "[" << tempPlayer.name << " has died.]" << endl;
+                saveFunc("Deaths.txt", 1);
+                gameOver(&tempPlayer, &tempEnemy);
+                //player is dead; game is over 
+            }
+            else
+            {
+                cout << "Error in combat conclusion." << endl;
+            }
+            break;
+
+        }
+        }
+    }
+
+    }
+}
+
+void createPlayer(Player* player)
+{
+    string input;
+    string origin;
+    string Class;
+    string name;
+
+    bool originBreaker = false; //used to end while loop 
+
+    cout << "Who";
+    chronoTrigger("longDotPause");
+    cout << "are you?" << endl;
+    chronoTrigger("pause");
+
+    cout << "Please enter name : " << endl;
+    cin >> name;
+    chronoTrigger("pause");
+    cout << name;
+    chronoTrigger("longPausePlusEL");
+    cout << "From where do you hail?" << endl;
+    chronoTrigger("pause");
+
+    while (originBreaker == false)
+    {
+        int choice = 0;
+        cout << "1. Midlands?" << endl;
+        cout << "[Please enter one of the numbers assigned to the origins]" << endl;
+        cin >> choice;
+
+        switch (choice)
+        {
+        case 1:
+        {
+            char originBool = 'x';
+
+            cout << "Ah,"; chronoTrigger("pause"); cout << " the Midlandians;"; chronoTrigger("pause"); cout << " A various people known for their adaptability."; chronoTrigger("pause"); cout << " Your empire lies at the heart of the continent,"; chronoTrigger("pause"); cout << " and its goods can be found as far as the southern frost and the northern oases." << endl; chronoTrigger("longPause");
+            cout << "[Midlandians receive a +1 bonus to every stat and a +1 bonus that they can assign to a single stat freely]" << endl;
+            cout << "Is this your origin? (Y/N)" << endl;
+            cin >> originBool;
+            originBool = tolower(originBool);
+            if (originBool == 'y') //ADD: player assigns extra stat points to stat for their Midlandian
+            {
+                origin = "Midlandian";
+                originBreaker = true; //sets breaker to true, ending while loop for selecting origin  
+                break;
+            }
+            else if (originBool == 'n')
+            {
+                cout << "Ah, "; chronoTrigger("longPause"); cout << "I must have misheard you." << endl;
+                break;
+            }
+            else
+            {
+                cout << "I'm sorry?" << endl;
+                cin >> originBool;
+            }
+            break;
+        }
+        case 2:
+        {
+            //char originBool = 'x';
+
+            //cout << "Hail, "; chronoTrigger("pause"); cout << "fair one."; chronoTrigger("pause"); cout << " You highlanders are known for your charming elven features and affinity for magic."; chronoTrigger("longPause"); cout << " Your secluded mountain homes are discretely kept from the other peoples, but that does not stop us from dreaming of their wonders!" << endl; chronoTrigger("longPause");
+            //cout << "[Highlanders receive a +2 bonus to charisma and the option to gain one spell, regardless of class]" << endl;
+            //cout << "Is this your origin? (Y/N)" << endl;
+            //cin >> originBool;
+            //originBool = tolower(originBool);
+            //if (originBool == 'y')//ADD: player gets option to pick a spell to gain ability to use for their Highlander 
+            //{
+            //    origin = "Highlander";
+            //    originBreaker = true; //sets breaker to true, ending while loop for selecting origin 
+            //    break;
+            //}
+            //else if (originBool == 'n')
+            //{
+            //    cout << "Ah, "; chronoTrigger("dotPause"); cout << "I must have misheard you." << endl;
+            //    break;
+            //}
+            //else //add ran response here?
+            //{
+            //    cout << "I'm sorry?" << endl;
+            //    cin >> originBool;
+            //}
+
+        }
+        break;
+        }
+
+    }
+
+    cout << "Now, " << name << ", what kind of skills do you possess? " << endl;
+    bool classBreaker = false;
+    while (classBreaker == 0)
+    {
+        int choice = 0;
+        cout << "1. Wizard" << endl;
+        cout << "[Please enter of the numbers assigned to the classes]" << endl;
+        cin >> choice;
+
+        switch (choice)
+        {
+
+            //case 1:
+            //{
+            //    char caseBools = 'x';
+
+            //    cout << "The well-rounded brawlers of the adventuring world. Fighters tend to be travelers that have witnessed a multitude of combat styles in their travels and combined them into a medley of techniques suitable for a range of situations." << endl;
+            //    cout << "[Fighters choose two weapons which they become proficient in. They also choose a fighting style. In return for their martial skills, fighters do not have access to spells." << endl; //unfinished
+            //    cout << "Is this your origin? (Y/N)" << endl;
+            //    cin >> caseBools;
+            //    if (caseBools == 'y')
+            //    {
+            //        Class = "Fighter";
+            //        classBreaker = true; //sets breaker to true, ending while loop for selecting class  
+            //        break;
+            //    }
+            //    else if (caseBools == 'n')
+            //    {
+            //        cout << "Ah, I must have misheard you." << endl;
+            //        break;
+            //    }
+            //    else //add ran response here?
+            //    {
+            //        cout << "I'm sorry?" << endl;
+            //        cin >> caseBools;
+            //    }
+            //}
+
+            //case 2:
+            //{
+
+
+            //}
+
+        case 1:
+        {
+            char classBool;
+            cout << "The wizard, clad in robes of stars, lost languages, or strange geometry. Their weapon of choice is their spellbook, a repository of their knowledge and secrets, etched in incantantions incomprehensible to those outside the arcane path." << endl;
+            cout << "[Wizards get a choice of one cantrip and one spell; their cantrip can be cast as many times as needed, just as the fighter uses their weapon or the ranger fires their bow; their spell, however, can only be used twice per day's rest, though its effects tend to be far more devastating than a mundane attack.\nThe Wizard also receives a staff as a backup weapon.]" << endl;
+            cout << "Is this your class (Y/N)?" << endl;
+            cin >> classBool;
+            classBool = tolower(classBool);
+            if (classBool == 'y')
+            {
+                Class = "Wizard";
+                classBreaker = true; //sets breaker to true, ending while loop for selecting class  
+                break;
+            }
+            else if (classBool == 'n')
+            {
+                cout << "Ah, I must have misheard you." << endl;
+                break;
+            }
+            else //add ran response here?
+            {
+                cout << "I'm sorry?" << endl;
+                cin >> classBool;
+            }
+
+        }
+
+
+        }
+    }
+    Player tempPlayer;
+    cout << "You are a " << origin << " that has the skills of a " << Class << "? Curious." << endl;
+    tempPlayer.name = name;
+    tempPlayer.origin = origin;
+    tempPlayer.Class = Class;
+    *player = tempPlayer;
+}
+
+void setAttributes(Player* player)
+{
+    Player tempPlayer = *player;
+    //resetting player attributes
+    tempPlayer.strength = 8;
+    tempPlayer.dexterity = 8;
+    tempPlayer.constitution = 8;
+    tempPlayer.intelligence = 8;
+    tempPlayer.wisdom = 8;
+    tempPlayer.charisma = 8;
+    *player = tempPlayer;
+    bool attributesLoop = false;
+    int freePoints = 27;
+    int staticOrCustom = 0;
+    while (attributesLoop == false)
+    {
+        cout << "Would you like to use a static build or a custom one?" << endl;
+        cout << "1. Static\n2. Custom" << endl;
+        if (!(staticOrCustom == 1) && !(staticOrCustom == 2))
+        {
+            cin >> staticOrCustom;
+        }
+
+        if (staticOrCustom == 1)
+        {
+            cout << "Using static template for wizard class. " << endl;
+            tempPlayer.intelligence = 20;
+            tempPlayer.wisdom = 11;
+            tempPlayer.dexterity = 14;
+            tempPlayer.constitution = 14;
+            freePoints = 0;
+
+            char attributesBool;
+            cout << "----------Attributes----------" << endl;
+            cout << "Strength: " << tempPlayer.strength << "\nDexterity: " << tempPlayer.dexterity << "\nConstitution: " << tempPlayer.constitution << "\nIntelligence: " << tempPlayer.intelligence << "\nWisdom: " << tempPlayer.wisdom << "\nCharisma: " << tempPlayer.charisma << endl;
+            cout << "------------------------------" << endl;
+            cout << "Proceed with these stats (Y/N)?" << endl;
+            cin >> attributesBool;
+            attributesBool = tolower(attributesBool);
+            if (attributesBool == 'y')
+            {
+                tempPlayer.setAC();
+                tempPlayer.setHP();
+                player->setHP();
+                break;
+            }
+            else if (attributesBool == 'n')
+            {
+                cout << "Resetting stats..." << endl;
+
+                freePoints = 27;
+                tempPlayer.strength = 8;
+                tempPlayer.dexterity = 8;
+                tempPlayer.constitution = 8;
+                tempPlayer.intelligence = 8;
+                tempPlayer.wisdom = 8;
+                tempPlayer.charisma = 8;
+                continue;
+            }
+            else
+            {
+                cout << "Input not understood; please try again." << endl;
+                continue;
+            }
+        }
+        else if (staticOrCustom == 2)
+        {
+            cout << "freePoints: " << freePoints << endl;
+            if (freePoints > 0)
+            {
+                int attributeChoice;
+                cout << "Please assign your attribute points" << endl;
+                cout << "Points left: " << freePoints << endl;
+                cout << "----------Attributes----------" << endl;
+                cout << "1. Strength: " << tempPlayer.strength << "\n2. Dexterity: " << tempPlayer.dexterity << "\n3. Constitution: " << tempPlayer.constitution << "\n4. Intelligence: " << tempPlayer.intelligence << "\n5. Wisdom: " << tempPlayer.wisdom << "\n6. Charisma: " << tempPlayer.charisma << "\n7. View attribute descriptions" << endl;
+                cout << "------------------------------" << endl;
+                cin >> attributeChoice;
+
+                switch (attributeChoice)
+                {
+                case 1:
+                {
+                    if (tempPlayer.strength >= 20)
+                    {
+                        cout << "Cannot increase any attributes beyond 20! Try distributing the rest of your points in other attributes!" << endl;
+                        continue;
+                    }
+                    else
+                    {
+                        tempPlayer.strength++;
+                        freePoints--;
+                        continue;
+                    }
+                }
+                case 2:
+                {
+                    if (tempPlayer.dexterity >= 20)
+                    {
+                        cout << "Cannot increase any attributes beyond 20! Try distributing the rest of your points in other attributes!" << endl;
+                        continue;
+                    }
+                    else
+                    {
+                        tempPlayer.dexterity++;
+                        freePoints--;
+                        continue;
+                    }
+                }
+                case 3:
+                {
+                    if (tempPlayer.constitution >= 20)
+                    {
+                        cout << "Cannot increase any attributes beyond 20! Try distributing the rest of your points in other attributes!" << endl;
+                        continue;
+                    }
+                    else
+                    {
+                        tempPlayer.constitution++;
+                        freePoints--;
+                        continue;
+                    }
+                }
+                case 4:
+                {
+                    if (tempPlayer.intelligence >= 20)
+                    {
+                        cout << "Cannot increase any attributes beyond 20! Try distributing the rest of your points in other attributes!" << endl;
+                        continue;
+                    }
+                    else
+                    {
+                        tempPlayer.intelligence++;
+                        freePoints--;
+                        continue;
+                    }
+                }
+                case 5:
+                {
+                    if (tempPlayer.wisdom >= 20)
+                    {
+                        cout << "Cannot increase any attributes beyond 20! Try distributing the rest of your points in other attributes!" << endl;
+                        continue;
+                    }
+                    else
+                    {
+                        tempPlayer.wisdom++;
+                        freePoints--;
+                        continue;
+                    }
+                }
+                case 6:
+                {
+                    if (tempPlayer.charisma >= 20)
+                    {
+                        cout << "Cannot increase any attributes beyond 20! Try distributing the rest of your points in other attributes!" << endl;
+                        continue;
+                    }
+                    else
+                    {
+                        tempPlayer.charisma++;
+                        freePoints--;
+                        continue;
+                    }
+                }
+
+                case 7:
+                {
+                    cout << "----Attribute Descriptions----" << endl;
+                    cout << "'Strength' determines your proficiency with most melee weapons, such as Longswords, Spears, and Staffs.\n'Dexterity' determines your proficiency with most ranged weapons, such as Longbows, Slings, and daggers. It also affects your initiative (Odds of getting the first turn in a combat encounter).\n'Constitution' determines your health and your ability to resist certain status effects.\n'Intelligence' determines your proficiency with spells.\n'Wisdom' determines your resistance to certain mental attacks.\n'Charisma' determines your proficiency with most ranged weapons, such as Longbows, Slings, and daggers." << endl;
+                    cout << "------------------------------" << endl;
+                    continue;
+                }
+
+                }
+            }
+            else
+            {
+                char attributeBool;
+                cout << "All free points spent. Final stats: " << endl;
+                cout << "----------Attributes----------" << endl;
+                cout << "Strength: " << tempPlayer.strength << "\nDexterity: " << tempPlayer.dexterity << "\nConstitution: " << tempPlayer.constitution << "\nIntelligence: " << tempPlayer.intelligence << "\nWisdom: " << tempPlayer.wisdom << "\nCharisma: " << tempPlayer.charisma << endl;
+                cout << "------------------------------" << endl;
+                cout << "Proceed with these stats (Y/N)?" << endl;
+                cin >> attributeBool;
+                attributeBool = tolower(attributeBool);
+                if (attributeBool == 'y')
+                {
+                    attributesLoop == true; //breaks attributes while loop
+                    tempPlayer.setAC();
+                    tempPlayer.setHP();
+                    player->setHP();
+                    break;
+                }
+                else if (attributeBool == 'n')
+                {
+                    attributeBool = 'x';
+                    cout << "Resetting attribute distribution, please try again." << endl;
+                    freePoints = 27;
+                    tempPlayer.strength = 8;
+                    tempPlayer.dexterity = 8;
+                    tempPlayer.constitution = 8;
+                    tempPlayer.intelligence = 8;
+                    tempPlayer.wisdom = 8;
+                    tempPlayer.charisma = 8;
+                    staticOrCustom = 0;
+
+                }
+                else
+                {
+                    cout << "Input not understood, please enter either 'Y' or 'N'!" << endl;
+                    cin >> attributeBool;
+                }
+            }
+        }
+        else
+        {
+            cout << "Input not understood; please try again." << endl;
+            continue;
+        }
+
+
+
+    }
+    *player = tempPlayer;
+}
+
+//sets player spellbook to include all spells chosen by player and depending on their class 
+void setClass(Player* player)
+{
+    Player tempPlayer = *player;
+    if (tempPlayer.Class == "Wizard")
+    {
+        bool cantripLoop = false;
+        while (cantripLoop == false)
+        {
+            int cantripChoice = 0;
+            cout << "Please select what your Wizard Cantrip will be from the menu below (enter the number corresponding to one of the cantrips)" << endl;
+            cout << "1. Firebolt\n2. Poison_Spray" << endl;
+            cin >> cantripChoice;
+
+            switch (cantripChoice)
+            {
+            case 1:
+            {
+                char cantripBool;
+                cout << "'Firebolt' is a cantrip spell that launches a ball of flames that, if it succeeds on a ranged attack roll, burns the target for 1d10 fire damage" << endl;
+                cout << "Is this your cantrip (Y/N)?" << endl;
+                cin >> cantripBool;
+                if (cantripBool == 'y')
+                {
+                    tempPlayer.spellBook.push_back("Firebolt");
+                    chronoTrigger("pause");
+                    cout << "Cantrip 'Firebolt' has been added to your Spellbook." << endl;
+                    cantripLoop = true; //sets breaker to true, ending while loop for selecting class   
+                    break;
+                }
+                else if (cantripBool == 'n')
+                {
+                    chronoTrigger("pause");
+                    cout << "Ah, I must have misheard you." << endl;
+                    break;
+                }
+                else //add ran response here?
+                {
+                    chronoTrigger("pause");
+                    cout << "I'm sorry?" << endl;
+                    cin >> cantripBool;
+                }
+            }
+
+            case 2:
+            {
+                char cantripBool;
+                cout << "'Poison_Spray' is a cantrip spell that spews a cloud of poisonous gas, if the target fails a constitution saving roll, they take 1d12 poison damage." << endl;
+                cout << "Is this your cantrip (Y/N)?" << endl;
+                cin >> cantripBool;
+                if (cantripBool == 'y')
+                {
+                    tempPlayer.spellBook.push_back("Poison_Spray");
+                    chronoTrigger("pause");
+                    cout << "Cantrip 'Poison_Spray' has been added to your Spellbook." << endl;
+                    cantripLoop = true; //sets breaker to true, ending while loop for selecting class   
+                    break;
+                }
+                else if (cantripBool == 'n')
+                {
+                    chronoTrigger("pause");
+                    cout << "Ah, I must have misheard you." << endl;
+                    break;
+                }
+                else //add ran response here?
+                {
+                    chronoTrigger("pause");
+                    cout << "I'm sorry?" << endl;
+                    cin >> cantripBool;
+                }
+            }
+
+            }
+        }
+
+        bool spellLoop = false;
+        while (spellLoop == false)
+        {
+            int spellChoice = 0;
+            cout << "Please select what your Wizard spell will be from the menu below (enter the number corresponding to one of the spells)" << endl;
+            cout << "1. Chromatic_Orb" << endl;
+            cin >> spellChoice;
+
+            switch (spellChoice)
+            {
+            case 1:
+            {
+                char spellBool;
+                cout << "'Chromatic Orb' is a spell that creates a sphere of energy, the nature of which is determined by the caster, which is then hurled at a target using a ranged spell attack that, if it lands, deals 3d8 damage of a type chosen by the caster." << endl;
+                cout << "Is this your spell (Y/N)?" << endl;
+                cin >> spellBool;
+                if (spellBool == 'y')
+                {
+                    tempPlayer.spellBook.push_back("Chromatic_Orb");
+                    chronoTrigger("pause");
+                    cout << "Spell 'Chromatic_Orb' has been added to your Spellbook." << endl;
+                    spellLoop = true; //sets breaker to true, ending while loop for selecting class    
+                    break;
+                }
+                else if (spellBool == 'n')
+                {
+                    chronoTrigger("pause");
+                    cout << "Ah, I must have misheard you." << endl;
+                    break;
+                }
+                else //add ran response here?
+                {
+                    chronoTrigger("pause");
+                    cout << "I'm sorry?" << endl;
+                    cin >> spellBool;
+                }
+            }
+
+            //case 2:
+            //{
+            //    char spellBool;
+            //    cout << "'Acid_Spray' is a spell that generates a stream of acid that jets towards the target; they must succeed on a dexterity save or be covered in acid, which will deal 3d4 acid damage to the target at the start of each of its turns for up to 10 turns." << endl;
+            //    cout << "Is this your spell (Y/N)?" << endl;
+            //    cin >> spellBool;
+            //    if (spellBool == 'y')
+            //    {
+            //        tempPlayer.spellBook.push_back("Acid_Spray");
+            //        chronoTrigger("pause");
+            //        cout << "Spell 'Acid_Spray' has been added to your Spellbook." << endl;
+            //        spellLoop = true; //sets breaker to true, ending while loop for selecting class    
+            //        break;
+            //    }
+            //    else if (spellBool == 'n')
+            //    {
+            //        chronoTrigger("pause");
+            //        cout << "Ah, I must have misheard you." << endl;
+            //        break;
+            //    }
+            //    else //add ran response here?
+            //    {
+            //        chronoTrigger("pause");
+            //        cout << "I'm sorry?" << endl;
+            //        cin >> spellBool;
+            //    }
+            //}
+
+            }
+        }
+        tempPlayer.spellSlots = 2;
+        chronoTrigger("pause");
+        cout << "Class spell slots set at 2 (these are consumed to cast your spell)" << endl;
+        tempPlayer.inventory.push_back("Staff");
+        chronoTrigger("pause");
+        cout << "Class item 'Staff' has been added to your Inventory" << endl;
+    }
+
+    *player = tempPlayer;
+}
+
+void setOrigin(Player* player)
+{
+    Player tempPlayer = *player;
+    if (tempPlayer.origin == "Midlandian")
+    {
+        tempPlayer.strength += 1;
+        tempPlayer.dexterity += 1;
+        tempPlayer.constitution += 1;
+        tempPlayer.intelligence += 1;
+        tempPlayer.wisdom += 1;
+        tempPlayer.charisma += 1;
+
+        cout << "As a Midlandian, each of your attributes have been increased by 1." << endl;
+
+        bool originLoop = false;
+        while (originLoop == false)
+        {
+            int originChoice = 0;
+            cout << "Please which attribute you want to increase by 1 again as per your Midlandian origin: " << endl;
+            cout << "1. Strength\n2. Dexterity\n3. Constitution\n4. Intelligence\n5. Wisdom\n6. Charisma" << endl;
+            cin >> originChoice;
+
+            switch (originChoice)
+            {
+            case 1:
+            {
+                char originBool;
+                cout << "'Strength' determines your proficiency with most melee weapons, such as Longswords, Spears, and Staffs." << endl;
+                cout << "Do you raise your Strength by 1? (Y/N)?" << endl;
+                cin >> originBool;
+                if (originBool == 'y')
+                {
+                    tempPlayer.strength += 1;
+                    chronoTrigger("pause");
+                    cout << "Strength has been raised by 1. New Strength is: " << tempPlayer.strength << "." << endl;
+                    originLoop = true; //sets breaker to true, ending while loop for selecting class    
+                    break;
+                }
+                else if (originBool == 'n')
+                {
+                    chronoTrigger("pause");
+                    cout << "Ah, I must have misheard you." << endl;
+                    break;
+                }
+                else //add ran response here?
+                {
+                    chronoTrigger("pause");
+                    cout << "I'm sorry?" << endl;
+                    cin >> originBool;
+                }
+            }
+
+            case 2:
+            {
+                char originBool;
+                cout << "'Dexterity' determines your proficiency with most ranged weapons, such as Longbows, Slings, and daggers. It also affects your initiative (Odds of getting the first turn in a combat encounter)." << endl;
+                cout << "Do you raise your Dexterity by 1? (Y/N)?" << endl;
+                cin >> originBool;
+                if (originBool == 'y')
+                {
+                    tempPlayer.dexterity += 1;
+                    chronoTrigger("pause");
+                    cout << "Dexterity has been raised by 1. New Dexterity is: " << tempPlayer.dexterity << "." << endl;
+                    originLoop = true; //sets breaker to true, ending while loop for selecting class    
+                    break;
+                }
+                else if (originBool == 'n')
+                {
+                    chronoTrigger("pause");
+                    cout << "Ah, I must have misheard you." << endl;
+                    break;
+                }
+                else //add ran response here?
+                {
+                    chronoTrigger("pause");
+                    cout << "I'm sorry?" << endl;
+                    cin >> originBool;
+                }
+            }
+
+            case 3:
+            {
+                char originBool;
+                cout << "'Constitution' determines your health and your ability to resist certain status effects." << endl;
+                cout << "Do you raise your Constitution by 1? (Y/N)?" << endl;
+                cin >> originBool;
+                if (originBool == 'y')
+                {
+                    tempPlayer.constitution += 1;
+                    chronoTrigger("pause");
+                    cout << "Constitution has been raised by 1. New Constitution is: " << tempPlayer.constitution << "." << endl;
+                    originLoop = true; //sets breaker to true, ending while loop for selecting class    
+                    break;
+                }
+                else if (originBool == 'n')
+                {
+                    chronoTrigger("pause");
+                    cout << "Ah, I must have misheard you." << endl;
+                    break;
+                }
+                else //add ran response here?
+                {
+                    chronoTrigger("pause");
+                    cout << "I'm sorry?" << endl;
+                    cin >> originBool;
+                }
+
+            }
+
+            case 4:
+            {
+                char originBool;
+                cout << "'Intelligence' determines your proficiency with spells." << endl;
+                cout << "Do you raise your Intelligence by 1? (Y/N)?" << endl;
+                cin >> originBool;
+                if (originBool == 'y')
+                {
+                    tempPlayer.intelligence += 1;
+                    chronoTrigger("pause");
+                    cout << "Intelligence has been raised by 1. New Intelligence is: " << tempPlayer.intelligence << "." << endl;
+                    originLoop = true; //sets breaker to true, ending while loop for selecting class    
+                    break;
+                }
+                else if (originBool == 'n')
+                {
+                    chronoTrigger("pause");
+                    cout << "Ah, I must have misheard you." << endl;
+                    break;
+                }
+                else //add ran response here?
+                {
+                    chronoTrigger("pause");
+                    cout << "I'm sorry?" << endl;
+                    cin >> originBool;
+                }
+
+            }
+
+            case 5:
+            {
+                char originBool;
+                cout << "'Wisdom' determines your resistance to certain mental attacks." << endl;
+                cout << "Do you raise your Wisdom by 1? (Y/N)?" << endl;
+                cin >> originBool;
+                if (originBool == 'y')
+                {
+                    tempPlayer.wisdom += 1;
+                    chronoTrigger("pause");
+                    cout << "Wisdom has been raised by 1. New Wisdom is: " << tempPlayer.wisdom << "." << endl;
+                    originLoop = true; //sets breaker to true, ending while loop for selecting class    
+                    break;
+                }
+                else if (originBool == 'n')
+                {
+                    chronoTrigger("pause");
+                    cout << "Ah, I must have misheard you." << endl;
+                    break;
+                }
+                else //add ran response here?
+                {
+                    chronoTrigger("pause");
+                    cout << "I'm sorry?" << endl;
+                    cin >> originBool;
+                }
+
+            }
+
+            case 6:
+            {
+                char originBool;
+                cout << "'Charisma' determines your proficiency with most ranged weapons, such as Longbows, Slings, and daggers." << endl;
+                cout << "Do you raise your Charisma by 1? (Y/N)?" << endl;
+                cin >> originBool;
+                if (originBool == 'y')
+                {
+                    tempPlayer.dexterity += 1;
+                    chronoTrigger("pause");
+                    cout << "Charisma has been raised by 1. New Charisma is: " << tempPlayer.charisma << "." << endl;
+                    originLoop = true; //sets breaker to true, ending while loop for selecting class    
+                    break;
+                }
+                else if (originBool == 'n')
+                {
+                    chronoTrigger("pause");
+                    cout << "Ah, I must have misheard you." << endl;
+                    break;
+                }
+                else //add ran response here?
+                {
+                    chronoTrigger("pause");
+                    cout << "I'm sorry?" << endl;
+                    cin >> originBool;
+                }
+
+            }
+
+
+            }
+        }
+    }
+    //else if (tempPlayer.origin == "Highlander")
+    //{
+
+    //}
+    //apply changes to player object
+    *player = tempPlayer;
+}
+
+void setEnemy(Enemy* enemy, string enemyName)
+{
+    Enemy tempEnemy = *enemy;
+    if (enemyName == "Goblin")
+    {
+        tempEnemy.name = "Goblin";
+        tempEnemy.HP = 7;
+        tempEnemy.AC = 15;
+        tempEnemy.strength = 8;
+        tempEnemy.dexterity = 14;
+        tempEnemy.constitution = 10;
+        tempEnemy.intelligence = 10;
+        tempEnemy.wisdom = 8;
+        tempEnemy.charisma = 8;
+        tempEnemy.inventory.push_back("Spear");
+    }
+    else if (enemyName == "Mimic")
+    {
+        tempEnemy.name = "Mimic";
+        tempEnemy.HP = 35;
+        tempEnemy.AC = 12;
+        tempEnemy.strength = 17;
+        tempEnemy.dexterity = 12;
+        tempEnemy.constitution = 15;
+        tempEnemy.intelligence = 5;
+        tempEnemy.wisdom = 13;
+        tempEnemy.charisma = 8;
+        //tempEnemy.inventory.push_back("an apple");
+    }
+    else if (enemyName == "Maximum_Uzumaki")
+    {
+        tempEnemy.name = "Amalgamation";
+        tempEnemy.HP = 25;
+        tempEnemy.AC = 10;
+        tempEnemy.strength = 14;
+        tempEnemy.dexterity = 8;
+        tempEnemy.constitution = 14;
+        tempEnemy.intelligence = 14;
+        tempEnemy.wisdom = 14;
+        tempEnemy.charisma = 4;
+    }
+    else
+    {
+        tempEnemy.name = enemyName;
+        tempEnemy.HP = 30;
+        tempEnemy.AC = 18;
+        tempEnemy.strength = 14;
+        tempEnemy.dexterity = 18;
+        tempEnemy.constitution = 12;
+        tempEnemy.intelligence = 12;
+        tempEnemy.wisdom = 12;
+        tempEnemy.charisma = 20;
+    }
+    *enemy = tempEnemy;
+}
+
+void chronoTrigger(string length)
+{
+    srand((unsigned)time(NULL));
+
+    //Real values
+    int longerDot = 260 + rand() % 200;
+    int dot = 220 + rand() % 120;
+    int longer = 1220 + rand() % 550;
+    int normal = 770 + rand() % 330;
+
+    //Playtesting values
+    //int longerDot = 5 + rand() % 5;
+    //int dot = 5 + rand() % 5;
+    //int longer = 5 + rand() % 5;
+    //int normal = 5 + rand() % 5;
+
+
+    if (length == "pause")
+    {
+        sleep_for(milliseconds(normal));
+    }
+    else if (length == "longPause")
+    {
+        sleep_for(milliseconds(longer));
+    }
+    else if (length == "dotPause")
+    {
+        sleep_for(milliseconds(dot));
+        cout << ".";
+        sleep_for(milliseconds(dot));
+        cout << ".";
+        sleep_for(milliseconds(dot));
+        cout << ". ";
+        sleep_for(milliseconds(dot));
+    }
+    else if (length == "longDotPause")
+    {
+        sleep_for(milliseconds(longerDot));
+        cout << ".";
+        sleep_for(milliseconds(longerDot));
+        cout << ".";
+        sleep_for(milliseconds(longerDot));
+        cout << ". ";
+        sleep_for(milliseconds(longerDot));
+    }
+    else if (length == "pausePlusEL")
+    {
+        sleep_for(milliseconds(dot));
+        cout << ".";
+        sleep_for(milliseconds(dot));
+        cout << ".";
+        sleep_for(milliseconds(dot));
+        cout << ". ";
+        sleep_for(milliseconds(dot));
+        cout << endl;
+    }
+    else if (length == "longPausePlusEL")
+    {
+        sleep_for(milliseconds(longerDot));
+        cout << ".";
+        sleep_for(milliseconds(longerDot));
+        cout << ".";
+        sleep_for(milliseconds(longerDot));
+        cout << ". ";
+        sleep_for(milliseconds(longerDot));
+        cout << endl;
+    }
+    else
+    {
+        sleep_for(milliseconds(longer));
+        cout << "ERROR: input for chronoTrigger is invalid!" << endl;
+        sleep_for(milliseconds(longer));
+    }
+}
+
+int meleeAttack(Player* player, Enemy* enemy, string weapon)
+{
+    Player tempPlayer = *player;
+    Enemy tempEnemy = *enemy;
+
+    if (find(tempPlayer.inventory.begin(), tempPlayer.inventory.end(), weapon) != tempPlayer.inventory.end())
+    {
+        int bonus = (tempPlayer.strength - 10) / 2;
+        int nakedRoll = diceRoller(20, 1);
+        int roll = nakedRoll + bonus;
+
+        if (weapon == "Limb")
+        {
+            if (nakedRoll == 20)
+            {
+                cout << "You roll a";
+                chronoTrigger("longPausePlusEL");
+                cout << "NAT 20!" << endl;
+                chronoTrigger("longPause");
+                cout << "CRITICAL ROLL!" << endl;
+                cout << "You engage the target with an unarmed strike and land a devastating blow! Bruising them for" << endl;
+                chronoTrigger("pausePlusEL");
+                int damage = (1 + bonus) * 2;
+                cout << damage << " blunt damage!" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else if (roll >= tempEnemy.AC)
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "You engage the target with an unarmed strike and";
+                chronoTrigger("pausePlusEL");
+                cout << "land a blow! Bruising them for" << endl;
+                chronoTrigger("pausePlusEL");
+                int damage = 1 + bonus;
+                cout << damage << " blunt damage!" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else
+            {
+                cout << "You roll a";
+                chronoTrigger("dotPause");
+                cout << roll << "!" << endl;
+                cout << "You engage the target with an unarmed strike and...";
+                chronoTrigger("pause");
+                cout << "fail to land a blow!" << endl;
+                chronoTrigger("pause");
+                return 0;
+            }
+        }
+        else if (weapon == "Staff")
+        {
+            int bonus = (tempPlayer.strength - 10) / 2;
+            int nakedRoll = diceRoller(20, 1);
+            int roll = nakedRoll + bonus;
+
+            if (nakedRoll == 20)
+            {
+                cout << "You roll a";
+                chronoTrigger("longPausePlusEL");
+                cout << "NAT 20!\nCRITICAL ROLL!" << endl;
+                cout << "You strike at the target with your staff and";
+                chronoTrigger("pausePlusEL");
+                cout << "land a powerful blow!Bruising them for" << endl;
+                chronoTrigger("pausePlusEL");
+                int damage = (diceRoller(6, 1) + bonus) * 2;
+                cout << damage << " blunt damage!" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else if (roll >= tempEnemy.AC)
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "You strike at the target with your staff and";
+                chronoTrigger("pausePlusEL");
+                cout << "land a blow! Bruising them for" << endl;
+                chronoTrigger("pausePlusEL");
+                int damage = diceRoller(6, 1) + bonus;
+                cout << damage << " blunt damage!" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "You strike at the target with your staff and";
+                chronoTrigger("dotPause");
+                cout << "fail to land a blow!" << endl;
+                chronoTrigger("pause");
+                return 0;
+            }
+        }
+        else if (weapon == "Spear")
+        {
+            int bonus = (tempPlayer.strength - 10) / 2;
+            int nakedRoll = diceRoller(20, 1);
+            int roll = nakedRoll + bonus;
+
+            if (nakedRoll == 20)
+            {
+                cout << "You roll a";
+                chronoTrigger("longPausePlusEL");
+                cout << "NAT 20!\nCRITICAL ROLL!" << endl;
+                cout << "You strike at the target with your spear and";
+                chronoTrigger("pausePlusEL");
+                cout << "land a blow! Impaling them for" << endl;
+                chronoTrigger("pausePlusEL");
+                int damage = (diceRoller(6, 1) + bonus) * 2;
+                cout << damage << " piercing damage!" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else if (roll >= tempEnemy.AC)
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "You strike at the target with your spear and";
+                chronoTrigger("pausePlusEL");
+                cout << "land a blow! Impaling them for" << endl;
+                chronoTrigger("pausePlusEL");
+                int damage = diceRoller(6, 1) + bonus;
+                cout << damage << " piercing damage!" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "You strike at the target with your spear and";
+                chronoTrigger("dotPause");
+                cout << "fail to land a blow!" << endl;
+                chronoTrigger("pause");
+                return 0;
+            }
+        }
+        else if (weapon == "Longsword")
+        {
+            int bonus = (tempPlayer.strength - 10) / 2;
+            int nakedRoll = diceRoller(20, 1);
+            int roll = nakedRoll + bonus;
+
+            if (nakedRoll == 20)
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << "NAT 20!\nCRITICAL ROLL!" << endl;
+                cout << "You swing at the target and";
+                chronoTrigger("pausePlusEL");
+                cout << "score an unsparing strike! Dealing" << endl;
+                chronoTrigger("pausePlusEL");
+                int damage = (diceRoller(8, 1) + bonus) * 2;
+                cout << damage << " slashing damage!" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else if (roll >= tempEnemy.AC)
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "You swing at the target and";
+                chronoTrigger("pausePlusEL");
+                cout << "score a hit! Dealing" << endl;
+                chronoTrigger("pausePlusEL");
+                int damage = diceRoller(8, 1) + bonus;
+                cout << damage << " slashing damage!" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "You swing at the target and";
+                chronoTrigger("dotPause");
+                cout << "fail to land a hit!" << endl;
+                chronoTrigger("pause");
+                return 0;
+            }
+        }
+    }
+    else
+    {
+
+    }
+    return 1;
+}
+
+int RangedAttack(Player* player, Enemy* enemy, string weapon)
+{
+    Player tempPlayer = *player;
+    Enemy tempEnemy = *enemy;
+
+    if (find(tempPlayer.inventory.begin(), tempPlayer.inventory.end(), weapon) != tempPlayer.inventory.end())
+    {
+        int bonus = (tempPlayer.dexterity - 10) / 2;
+        int nakedRoll = diceRoller(20, 1);
+        int roll = nakedRoll + bonus;
+
+        if (weapon == "Longbow")
+        {
+            if (nakedRoll == 20)
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << "NAT 20!\nCRITICAL ROLL!" << endl;
+                cout << "You draw back your bowstring and loose an arrow at the target and";
+                chronoTrigger("pausePlusEL");
+                cout << "see the projectile land deep in the enemy! Dealing" << endl;
+                chronoTrigger("pausePlusEL");
+                int damage = (diceRoller(8, 1) + bonus) * 2;
+                cout << damage << "piercing damage!" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else if (roll >= tempEnemy.AC)
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "You draw back your bowstring and loose an arrow at the target and";
+                chronoTrigger("pausePlusEL");
+                cout << "strike them! Dealing" << endl;
+                chronoTrigger("pausePlusEL");
+                int damage = diceRoller(8, 1) + bonus;
+                cout << damage << "piercing damage!" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "You draw back your bowstring and loose an arrow at the target and";
+                chronoTrigger("pausePlusEL");
+                cout << "miss!" << endl;
+                chronoTrigger("pause");
+                return 0;
+            }
+        }
+        else if (weapon == "Javelin")
+        {
+            int bonus = (tempPlayer.strength - 10) / 2;
+            int nakedRoll = diceRoller(20, 1);
+            int roll = nakedRoll + bonus;
+
+            if (nakedRoll == 20)
+            {
+                cout << "You roll a";
+                chronoTrigger("longPausePlusEL");
+                cout << "NAT 20!\nCRITICAL ROLL!" << endl;
+                cout << "You raise your javelin and hurl it";
+                chronoTrigger("pausePlusEL");
+                cout << "striking the target with piercing force! Dealing" << endl;
+                chronoTrigger("pausePlusEL");
+                int damage = (diceRoller(8, 1) + bonus) * 2;
+                cout << damage << "piercing damage!" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else if (roll >= tempEnemy.AC)
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "You raise your javelin and hurl it";
+                chronoTrigger("pausePlusEL");
+                cout << "striking the target with piercing force! Dealing" << endl;
+                chronoTrigger("pausePlusEL");
+                int damage = diceRoller(8, 1) + bonus;
+                cout << damage << " piercing damage!" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+        }
+        else if (weapon == "Dagger")
+        {
+
+        }
+
+    }
+    else
+    {
+
+    }
+    return 1;
+}
+
+
+//function for casting spells; checks if player's spellbook has the spell, and if it does, runs the spell's code block.
+int castSpell(Player* player, Enemy* enemy, string spell)
+{
+    Player tempPlayer = *player;
+    Enemy tempEnemy = *enemy;
+
+    if (find(tempPlayer.spellBook.begin(), tempPlayer.spellBook.end(), spell) != tempPlayer.spellBook.end())
+    {
+        if (spell == "Firebolt")
+        {
+            int bonus = (tempPlayer.intelligence - 10) / 2;
+            int nakedRoll = diceRoller(20, 1);
+            int roll = nakedRoll + bonus;
+
+            if (nakedRoll == 20)
+            {
+                cout << "You roll a";
+                chronoTrigger("longPausePlusEL");
+                cout << "NAT 20!\nCRITICAL ROLL!" << endl;
+                cout << "Your firebolt streaks through the air and";
+                chronoTrigger("dotPause");
+                cout << "strikes the enemy! Scorching them for";
+                chronoTrigger("dotPause");
+                int damage = diceRoller(10, 1) * 2;
+                cout << damage << " fire damage!" << endl;
+                cout << "--------------------------" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else if (roll >= tempEnemy.AC)
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "Your firebolt streaks through the air and";
+                chronoTrigger("dotPause");
+                cout << "strikes the enemy! Scorching them for";
+                chronoTrigger("dotPause");
+                int damage = diceRoller(10, 1);
+                cout << damage << " fire damage!" << endl;
+                cout << "--------------------------" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "Your firebolt streaks through the air and";
+                chronoTrigger("dotPause");
+                cout << "misses the enemy!" << endl;
+                cout << "--------------------------" << endl;
+                chronoTrigger("pause");
+                return 0;
+            }
+        }
+        else if (spell == "Poison_Spray")
+        {
+            int bonus = (tempPlayer.intelligence - 10) / 2;
+
+            cout << "You extend your hand toward the target and project a cloud of poisonous gas! The target must surpass your magic with their Constitution or be poisoned!";
+            int enemyConstitution = (tempEnemy.constitution - 10) / 2;
+            int enemyConSave = (diceRoller(20, 1) + enemyConstitution);
+            if ((10 + bonus) > enemyConSave)
+            {
+                int damage = diceRoller(12, 1);
+                cout << "The target rolls a";
+                chronoTrigger("longPausePlusEL");
+                cout << enemyConSave << "!\nThis is not strong enough to surpass your magic and the target is poisoned for";
+                chronoTrigger("pausePlusEL");
+                cout << damage << " poison damage!" << endl;
+                cout << "--------------------------" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else
+            {
+                cout << "The target rolls a";
+                chronoTrigger("pausePlusEL");
+                cout << enemyConSave << "! This surpasses your magic!\nThe target suffers no damage." << endl;
+                cout << "--------------------------" << endl;
+                chronoTrigger("pause");
+                return 0;
+            }
+        }
+        else if (spell == "Chromatic_Orb")
+        {
+            int bonus = (tempPlayer.intelligence - 10) / 2;
+            int orbChoice;
+            string orbDamageType;
+            bool orbLoop = false;
+            while (orbLoop == false)
+            {
+                cout << "You generate an orb of magical power in your hands, inbuing it with one of the mundane forces: " << endl;
+                cout << "1. Fire\n2. Cold\n3. Acid\n4. Poison" << endl;
+                cin >> orbChoice;
+                switch (orbChoice)
+                {
+                case 1:
+                {
+                    char orbBool;
+                    cout << "Proceed with fire damage?(Y/N)" << endl;
+                    cin >> orbBool;
+                    orbBool = tolower(orbBool);
+                    if (orbBool == 'y')
+                    {
+                        orbDamageType = "fire";
+                        orbLoop = true; //breaks orb loop
+                        break;
+                    }
+                    else if (orbBool == 'n')
+                    {
+                        cout << "Please try again." << endl;
+                        break;
+                    }
+                    else
+                    {
+                        cout << "Input not understood, please try again." << endl;
+                        break;
+                    }
+                }
+                case 2:
+                {
+                    char orbBool;
+                    cout << "Proceed with Cold damage?(Y/N)" << endl;
+                    cin >> orbBool;
+                    orbBool = tolower(orbBool);
+                    if (orbBool == 'y')
+                    {
+                        orbDamageType = "cold";
+                        orbLoop = true; //breaks orb loop
+                        break;
+                    }
+                    else if (orbBool == 'n')
+                    {
+                        cout << "Please try again." << endl;
+                        break;
+                    }
+                    else
+                    {
+                        cout << "Input not understood, please try again." << endl;
+                        break;
+                    }
+                }
+                case 3:
+                {
+                    char orbBool;
+                    cout << "Proceed with acid damage?(Y/N)" << endl;
+                    cin >> orbBool;
+                    orbBool = tolower(orbBool);
+                    if (orbBool == 'y')
+                    {
+                        orbDamageType = "acid";
+                        orbLoop = true; //breaks orb loop
+                        break;
+                    }
+                    else if (orbBool == 'n')
+                    {
+                        cout << "Please try again." << endl;
+                        break;
+                    }
+                    else
+                    {
+                        cout << "Input not understood, please try again." << endl;
+                        break;
+                    }
+                }
+                case 4:
+                {
+                    char orbBool;
+                    cout << "Proceed with Poison damage?(Y/N)" << endl;
+                    cin >> orbBool;
+                    orbBool = tolower(orbBool);
+                    if (orbBool == 'y')
+                    {
+                        orbDamageType = "poison";
+                        orbLoop = true; //breaks orb loop 
+                        break;
+                    }
+                    else if (orbBool == 'n')
+                    {
+                        cout << "Please try again." << endl;
+                        break;
+                    }
+                    else
+                    {
+                        cout << "Input not understood, please try again." << endl;
+                        break;
+                    }
+                }
+                }
+            }
+            int nakedRoll = diceRoller(20, 1);
+            int roll = nakedRoll + bonus;
+
+            if (nakedRoll == 20)
+            {
+                cout << "You roll a ";
+                chronoTrigger("longPausePlusEL");
+                cout << "NAT 20!\nCRITICAL ROLL!" << endl;
+
+                int damage = diceRoller(8, 3) * 2;
+                cout << "The orb soars through the air and strikes the target at full force! Dealing "; chronoTrigger("dotPause"); cout << damage << " " << orbDamageType << " damage!" << endl;
+                return damage;
+            }
+            else if (roll >= tempEnemy.AC)
+            {
+                int damage = diceRoller(8, 3);
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!\nThe orb soars through the air and strikes the target! Dealing "; chronoTrigger("dotPause"); cout << damage << " " << orbDamageType << " damage!" << endl;
+                return damage;
+            }
+            else
+            {
+                int damage = diceRoller(8, 3);
+                cout << "You roll a ";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "! The orb soars through the air and..."; chronoTrigger("longDotPause"); cout << " misses the target!" << endl;
+                return 0;
+            }
+        }
+
+        else if (spell == "Scroll_Of_Lightning_Bolt")
+
+        {
+            int bonus = (tempPlayer.intelligence - 10) / 2;
+            int nakedRoll = diceRoller(20, 1);
+            int roll = nakedRoll + bonus;
+            cout << "You generate a ball of lightning in your hand,"; chronoTrigger("pause"); cout << " and " << endl;
+            if (nakedRoll == 20)
+            {
+                cout << "You roll a";
+                chronoTrigger("longPausePlusEL");
+                cout << "NAT 20!\nCRITICAL ROLL!" << endl;
+                cout << "Your lightning bolt streaks through the air and";
+                chronoTrigger("dotPause");
+                cout << "strikes the enemy! shocking them for";
+                chronoTrigger("dotPause");
+                int damage = diceRoller(8, 5) * 2;
+                cout << damage << " lightning damage!" << endl;
+                cout << "--------------------------" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else if (roll >= tempEnemy.AC)
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "Your lightning bolt streaks through the air and";
+                chronoTrigger("dotPause");
+                cout << "strikes the enemy! shocking them for";
+                chronoTrigger("dotPause");
+                int damage = diceRoller(8, 5);
+                cout << damage << " lightning damage!" << endl;
+                cout << "--------------------------" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "Your lightning bolt streaks through the air and";
+                chronoTrigger("dotPause");
+                cout << "misses the enemy!" << endl;
+                cout << "--------------------------" << endl;
+                chronoTrigger("pause");
+                return 0;
+            }
+
+        }
+        else if (spell == "Scroll_Of_Scorching_Ray")
+        {
+            int bonus = (tempPlayer.intelligence - 10) / 2;
+            int nakedRoll = diceRoller(20, 1);
+            int roll = nakedRoll + bonus;
+            cout << "You generate three scorching rays,"; chronoTrigger("pause"); cout << " and " << endl;
+            if (nakedRoll == 20)
+            {
+                cout << "You roll a";
+                chronoTrigger("longPausePlusEL");
+                cout << "NAT 20!\nCRITICAL ROLL!" << endl;
+                cout << "The scorching rays burn through the air and";
+                chronoTrigger("dotPause");
+                cout << "connect with the target! Burning them for";
+                chronoTrigger("dotPause");
+                int damage = diceRoller(6, 4) * 2;
+                cout << damage << " fire damage!" << endl;
+                cout << "--------------------------" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else if (roll >= tempEnemy.AC)
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "The scorching rays burn through the air and";
+                chronoTrigger("dotPause");
+                cout << "connect with the target! Burning them for";
+                chronoTrigger("dotPause");
+                int damage = diceRoller(6, 4);
+                cout << damage << " fire damage!" << endl;
+                cout << "--------------------------" << endl;
+                chronoTrigger("pause");
+                return damage;
+            }
+            else
+            {
+                cout << "You roll a";
+                chronoTrigger("pausePlusEL");
+                cout << roll << "!" << endl;
+                cout << "The rays burn through the air and";
+                chronoTrigger("dotPause");
+                cout << "miss the enemy!" << endl;
+                cout << "--------------------------" << endl;
+                chronoTrigger("pause");
+                return 0;
+            }
+
+        }
+
+
+    }
+
+    else
+    {
+        cout << "Spell not found!" << endl;
+    }
+    return 0;
+}
+
+int diceRoller(int diefaces, int dieCount)
+{
+    // Providing a seed value 
+    srand((unsigned)time(NULL));
+
+    //Get a random number
+    int random = 0;
+
+    for (int i = 1; i <= dieCount; i++)
+    {
+        random += 1 + rand() % diefaces;
+    }
+
+    return random;
+}
+
+char rollInitiative(Player* player, Enemy* enemy)
+{
+    Player tempPlayer = *player;
+    Enemy tempEnemy = *enemy;
+    cout << "[You roll initiative]" << endl;
+    int playerInitiative = diceRoller(20, 1) + ((tempPlayer.dexterity - 10) / 2);
+    cout << tempPlayer.name << " rolls a"; chronoTrigger("dotPause"); cout << playerInitiative << "!" << endl;
+    int enemyInitiative = diceRoller(20, 1) + ((tempEnemy.dexterity - 10) / 2);
+    cout << tempEnemy.name << " rolls a"; chronoTrigger("dotPause"); cout << enemyInitiative << "!" << endl;
+    if (playerInitiative >= enemyInitiative)
+    {
+        cout << tempPlayer.name << " wins! Combat begins with their turn." << endl;
+        return 'p';
+    }
+    else
+    {
+        cout << tempEnemy.name << " wins! Combat begins with their turn." << endl;
+        return 'e';
+    }
+}
+
+//int determineResistance()
+//{
+//    return 0;
+//}
+
+//enemy attack mechanics
+void enemyTurn(Player* player, Enemy* enemy)
+{
+    Player tempPlayer = *player;
+    Enemy tempEnemy = *enemy;
+
+    if (tempEnemy.name == "Goblin")
+    {
+        //check if goblin has spear, otherwise, it will use secondary weapon
+        if (find(tempEnemy.inventory.begin(), tempEnemy.inventory.end(), "Spear") != tempEnemy.inventory.end())
+        {
+            //stats to use for javelin weapon
+            int bonus = (tempEnemy.strength - 10) / 2;
+            int nakedRoll = diceRoller(20, 1);
+            int roll = nakedRoll + bonus;
+
+            cout << "The Goblin hefts its spear and throws, hurtling the weapon through the air and";
+
+            if (nakedRoll == 20)
+            {
+                chronoTrigger("longPausePlusEL");
+                cout << "landing it in its target with a devastating force! You take";
+                chronoTrigger("pausePlusEL");
+                int damage = (diceRoller(8, 1) + bonus) * 2;
+
+                //subtracts damage roll from player object's hp
+                tempPlayer.HP -= damage;
+                cout << damage << " piercing damage!" << endl;
+                chronoTrigger("pause");
+                //remove spear from enemy inventory
+                for (int i = 0; i < tempEnemy.inventory.size(); i++)
+                {
+                    if (tempEnemy.inventory[i] == "Spear")
+                    {
+                        tempEnemy.inventory[i].erase();
+                    }
+                }
+            }
+            else if (roll >= tempPlayer.AC)
+            {
+                cout << " it hits its target! You take";
+                chronoTrigger("pausePlusEL");
+                int damage = diceRoller(8, 1) + bonus;
+
+                //subtracts damage roll from player object's hp
+                tempPlayer.HP -= damage;
+                cout << damage << " piercing damage!" << endl;
+                chronoTrigger("pause");
+                //remove spear from enemy inventory
+                for (int i = 0; i < tempEnemy.inventory.size(); i++)
+                {
+                    if (tempEnemy.inventory[i] == "Spear")
+                    {
+                        tempEnemy.inventory[i].erase();
+                    }
+                }
+            }
+            else
+            {
+                cout << " it flies past its target!" << endl;
+                chronoTrigger("pause");
+                cout << "You suffer no damage." << endl;
+
+                //remove spear from enemy inventory
+                for (int i = 0; i < tempEnemy.inventory.size(); i++)
+                {
+                    if (tempEnemy.inventory[i] == "Spear")
+                    {
+                        tempEnemy.inventory[i].erase();
+                    }
+                }
+
+            }
+        }
+        else
+        {
+            //stats to use for sling weapon
+            int bonus = (tempEnemy.dexterity - 10) / 2;
+            int nakedRoll = diceRoller(20, 1);
+            int roll = nakedRoll + bonus;
+
+            cout << "The Goblin spins its sling and looses a projectile! Which";
+            chronoTrigger("longPausePlusEL");
+            if (nakedRoll == 20)
+            {
+                cout << "slams into its target with CRITICAL force! You take";
+                chronoTrigger("pausePlusEL");
+                int damage = (diceRoller(4, 1) + bonus) * 2;
+
+                //subtracts damage roll from player object's hp
+                tempPlayer.HP -= damage;
+                cout << damage << " bludgeoning damage!" << endl;
+                chronoTrigger("pause");
+
+            }
+            else if (roll >= tempPlayer.AC)
+            {
+                cout << "slams into its target! You take";
+                chronoTrigger("pausePlusEL");
+                int damage = diceRoller(8, 1) + bonus;
+
+                //subtracts damage roll from player object's hp    
+                tempPlayer.HP -= damage;
+                cout << damage << " bludgeoning damage!" << endl;
+                chronoTrigger("pause");
+            }
+            else
+            {
+                cout << " soars past its target!" << endl;
+                chronoTrigger("pause");
+                cout << "You suffer no damage." << endl;
+            }
+        }
+    }
+    else if (tempEnemy.name == "Mimic")
+    {
+        int bonus = (tempEnemy.strength - 10) / 2;
+        int nakedRoll = diceRoller(20, 1);
+        int roll = nakedRoll + bonus;
+
+        cout << "The Mimic lunges forward and";
+        chronoTrigger("longPausePlusEL");
+        if (nakedRoll == 20)
+        {
+            cout << "sinks its teeth into you with CRITICAL force! You take";
+            chronoTrigger("pausePlusEL");
+            int damage = (diceRoller(8, 1) + bonus) * 2;
+
+            //subtracts damage roll from player object's hp     
+            tempPlayer.HP -= damage;
+            cout << damage << " piercing damage!" << endl;
+            chronoTrigger("pause");
+        }
+        else if (roll >= tempPlayer.AC)
+        {
+            cout << "sinks its teeth into its target! You take";
+            chronoTrigger("pausePlusEL");
+            int damage = diceRoller(8, 1) + bonus;
+
+            //subtracts damage roll from player object's hp    
+            tempPlayer.HP -= damage;
+            cout << damage << " piercing damage!" << endl;
+            chronoTrigger("pause");
+        }
+        else
+        {
+            cout << "snaps its jaw on thin air!" << endl;
+            chronoTrigger("pause");
+            cout << "You suffer no damage." << endl;
+        }
+    }
+    else if (tempEnemy.name == "Amalgamation")
+    {
+        //add num of player deaths to damage
+        cout << "An unseen force touches your soul"; chronoTrigger("longDotPause"); cout << "dealing ";
+        int damage = getSaveData("Uzumaki.txt");
+        tempPlayer.HP -= damage;
+        cout << damage << " necrotic damage." << endl;
+
+    }
+    else
+    {
+        int nakedRoll = diceRoller(20, 1);
+        int bonus = (tempEnemy.charisma - 10) / 2;
+        int roll = nakedRoll + bonus;
+        int attackType = diceRoller(2, 1);
+        if (attackType == 2)
+        {
+            cout << "The Rizzler closes one eye, and as he does he focuses his gaze on you."; chronoTrigger("pause"); cout << " Suddenly,"; chronoTrigger("pause"); cout << " a shockingly bright light erupts from the eye, shooting towards you and";
+        }
+        else
+        {
+            cout << "The Rizzler gives you a winning smile towards you,"; chronoTrigger("pause"); cout << " it";
+        }
+        if (nakedRoll == 20)
+        {
+            chronoTrigger("pausePlusEL");
+            cout << " strikes you with CRITICAL Rizz!" << endl;
+            chronoTrigger("longDotPause");
+            cout << "You take"; chronoTrigger("longDotPause");
+            int damage = (diceRoller(8, 1) + bonus) * 2;
+            cout << damage << " psychic damage!" << endl;
+            tempPlayer.HP -= damage;
+        }
+        else if (roll >= tempPlayer.AC)
+        {
+            chronoTrigger("pausePlusEL");
+            cout << " strikes you with its charisma!" << endl;
+            chronoTrigger("longDotPause");
+            cout << "You take"; chronoTrigger("longDotPause");
+            int damage = (diceRoller(8, 1) + bonus);
+            cout << damage << " psychic damage!" << endl;
+            tempPlayer.HP -= damage;
+        }
+        else
+        {
+            chronoTrigger("pausePlusEL");
+            cout << " its force misses you!" << endl;
+            chronoTrigger("pause");
+            cout << "You take no damage." << endl;
+        }
+    }
+    *enemy = tempEnemy;
+    *player = tempPlayer;
+}
+
+
+//receive player data on spells, weapons skills
+//receive info on enemy hp, AC, abilities, etc.
+//receive info on terrain
+
+char combatScreen(Player* player, Enemy* enemy)
+{
+    Player tempPlayer = *player;
+    Enemy tempEnemy = *enemy;
+
+    while (tempPlayer.HP > 0 && tempEnemy.HP > 0)
+    {
+        bool exit = false;
+        string userInput;
+        cout << "What do you do?" << endl;
+        cout << "[Attack]\n[Spells]\n[View Player Stats]" << endl;
+        cin >> userInput;
+
+        for (int i = 0; i < userInput.length(); i++)
+        {
+            userInput[i] = tolower(userInput[i]);
+        }
+
+        if (!(userInput == "attack") && !(userInput == "atk") && !(userInput == "spells") && !(userInput == "spell") && !(userInput == "view player stats") && !(userInput == "view stats") && !(userInput == "stats") && !(userInput == "view"))
+        {
+            cout << "Input not understood, please try again!" << endl;
+            continue;
+        }
+        else if (userInput == "attack" || userInput == "atk")
+        {
+            string inputForAttack;
+            cout << "['M' for Melee Attack]\n['R' for Ranged Attack]\n[Exit]" << endl;
+            cin >> inputForAttack;
+            if (inputForAttack == "E" || inputForAttack == "Exit")
+            {
+                continue;
+            }
+            else if (inputForAttack == "M" || inputForAttack == "Melee Attack")
+            {
+                cout << "[Name your weapon (such as 'Limb' for an unarmed strike!)]" << endl;
+                cout << "[Exit]" << endl;
+
+                tempPlayer.displayMeleeWeapons();
+                cout << "---------------------------" << endl;
+                string weapon;
+                cin >> weapon;
+                bool found = false;
+                for (int i = 0; i < tempPlayer.inventory.size(); i++)
+                {
+                    if (tempPlayer.inventory[i] == weapon)
+                    {
+                        found = true;
+                    }
+                }
+                if (found == false)
+                {
+                    cout << "Could not find that weapon! Please try again." << endl;
+                    continue;
+                }
+                else
+                {
+                    int damage;
+                    damage = meleeAttack(&tempPlayer, &tempEnemy, weapon);
+                    tempEnemy.HP -= damage;
+                }
+
+            }
+            else if (inputForAttack == "R" || inputForAttack == "Ranged Attack")
+            {
+                cout << "[Name your weapon (such as 'Longbow'!)]" << endl;
+                cout << "[Exit]" << endl;
+
+                tempPlayer.displayRangedWeapons();
+                cout << "---------------------------" << endl;
+                string weapon;
+                cin >> weapon;
+                bool found = false;
+                for (int i = 0; i < tempPlayer.inventory.size(); i++)
+                {
+                    if (tempPlayer.inventory[i] == weapon)
+                    {
+                        found = true;
+                    }
+                }
+                if (found == false)
+                {
+                    cout << "Could not find that weapon! Please try again." << endl;
+                    continue;
+                }
+                else
+                {
+                    int damage;
+                    damage = RangedAttack(&tempPlayer, &tempEnemy, weapon);
+                    tempEnemy.HP -= damage;
+                }
+
+
+                cout << "----------------------------" << endl;
+            }
+        }
+        else if (userInput == "spells" || userInput == "spell")
+        {
+            string spell;
+            bool found = false;
+            tempPlayer.displaySpells();
+            cout << "[Chant Spell to Cast]" << endl;
+            cout << "[Exit]" << endl;
+            cout << "--------------------------" << endl;
+            cin >> spell;
+
+            if (spell == "Exit" || spell == "E")
+            {
+                continue;
+            }
+            else
+            {
+                for (int i = 0; i < tempPlayer.spellBook.size(); i++)
+                {
+                    if (tempPlayer.spellBook[i] == spell)
+                    {
+                        found = true;
+                    }
+                }
+                if (found == false)
+                {
+                    cout << "The chant has no effect! Please try again." << endl;
+                    continue;
+                }
+                else if ((spell == "Chromatic_Orb" || spell == "Acid_Spray") && tempPlayer.spellSlots < 1)
+                {
+                    cout << "You do not have the necessary spell slot to cast that spell! You must replenish your spell slots before casting another spell. (Cantrips are still available to cast)" << endl;
+                    continue;
+                }
+
+                else
+                {
+                    int damage;
+                    damage = castSpell(&tempPlayer, &tempEnemy, spell);
+                    tempEnemy.HP -= damage;
+                    if (spell == "Chromatic_Orb" || spell == "Acid_Spray")
+                    {
+                        tempPlayer.spellSlots--;
+                    }
+                    if (spell == "Scroll_Of_Lightning_Bolt")
+                    {
+                        for (int i = 0; i < tempPlayer.spellBook.size(); i++)
+                        {
+                            if (tempPlayer.spellBook[i] == "Scroll_Of_Lightning_Bolt")
+                            {
+                                tempPlayer.spellBook[i].erase();
+                            }
+                        }
+
+                    }
+                    if (spell == "Scroll_Of_Scorching_Ray")
+                    {
+                        for (int i = 0; i < tempPlayer.spellBook.size(); i++)
+                        {
+                            if (tempPlayer.spellBook[i] == "Scroll_Of_Scorching_Ray")
+                            {
+                                tempPlayer.spellBook[i].erase();
+                            }
+                        }
+                    }
+
+                }
+
+            }
+
+        }
+        else if (userInput == "view" || userInput == "stats")
+        {
+            tempPlayer.displayPlayerStats();
+            continue;
+        }
+        *player = tempPlayer;
+        *enemy = tempEnemy;
+
+        if (tempPlayer.HP > 0 && tempEnemy.HP > 0) 
+        { 
+            enemyTurn(&tempPlayer, &tempEnemy); 
+        } 
+    }
+
+    //if (tempPlayer.HP > 0 && tempEnemy.HP > 0)
+    //{
+    //    enemyTurn(&tempPlayer, &tempEnemy);
+    //}
+    if (tempPlayer.HP < 1 && tempEnemy.HP > 0)
+    {
+        cout << "Combat has ended: " << tempEnemy.name << " is victorious! You have been defeated. " << endl;
+        return 'e';
+    }
+    else if (tempPlayer.HP > 0 && tempEnemy.HP < 1)
+    {
+        cout << "Combat has ended: " << tempPlayer.name << " is victorious! " << tempEnemy.name << " has been defeated." << endl;
+        return 'p';
+    }
+    else
+    {
+        cout << "COMBAT ERROR: both combat creatures have ended combat with 0 health." << endl;
+        return 'x';
+    }
+}
+
+//void crystalRoll(Player* player)
+//{
+//    Player tempPlayer = *player;
+//    if (diceRoller(2, 1) > 1)
+//    {
+//        play
+//    }
+//}
+
+void setStartingData()
+{
+    ofstream outFile;
+    if (getSaveData("Rizzler.txt") <= 19)
+    {
+        outFile.open("Rizzler.txt");  
+        outFile << 19 << "\n";
+        outFile.close(); 
+    }
+    if (getSaveData("Uzumaki.txt") <= 7)
+    {
+        outFile.open("Uzumaki.txt");
+        outFile << 7 << "\n";
+        outFile.close();  
+    }
+}
+
+void saveFunc(string saveType, int data)
+{
+    if (saveType == "Deaths.txt")
+    {
+        int fileData = getSaveData(saveType);
+        fileData += data; 
+        ofstream outFile;
+        outFile.open("Deaths.txt");
+        outFile << fileData << "\n"; 
+        outFile.close();
+    }
+    else if (saveType == "Slain.txt")
+    {
+        int fileData = getSaveData(saveType);
+        fileData += data;
+        ofstream outFile;
+        outFile.open(saveType);
+        outFile << fileData << "\n";
+        outFile.close();
+    }
+    else if (saveType == "Looted.txt")
+    {
+        int fileData = getSaveData(saveType);
+        fileData += data;
+        ofstream outFile;
+        outFile.open(saveType);
+        outFile << fileData << "\n";
+        outFile.close();
+    }
+    else if (saveType == "Rizzler.txt")
+    {
+        int fileData = getSaveData(saveType);
+        fileData += data;
+        ofstream outFile;
+        outFile.open(saveType);
+        outFile << fileData << "\n";
+        outFile.close();
+    }
+    else if (saveType == "Uzumaki.txt")
+    {
+        int fileData = getSaveData(saveType);
+        fileData += data;
+        ofstream outFile;
+        outFile.open(saveType);
+        outFile << fileData << "\n";
+        outFile.close();
+    }
+    else
+    {
+        cout << "ERROR IN saveType INPUT FOR 'saveFunc' FUNCTION!" << endl;
+    }
+
+}
+int getSaveData(string fileName)
+{
+    ifstream inFile;
+    if (fileName == "Deaths.txt")
+    {
+        inFile.open(fileName);
+        string line;
+        string stringData = "";
+        while (getline(inFile, line))
+        {
+            if (line.length() > 0)
+            {
+                stringData = line;
+            }
+        }
+
+        if (stringData.length() < 1)
+        {
+            return 0;
+        }
+        else
+        {
+            int data = stoi(stringData);
+            inFile.close();
+            return data;
+        }
+    }
+    else if (fileName == "Slain.txt")
+    {
+        inFile.open(fileName);
+        string line;
+        string stringData = "";
+        while (getline(inFile, line))
+        {
+            if (line.length() > 0)
+            {
+                stringData = line;
+            }
+        }
+
+        if (stringData.length() < 1)
+        {
+            return 0;
+        }
+        else
+        {
+            int data = stoi(stringData);
+            inFile.close();
+            return data;
+        }
+    }
+    else if (fileName == "Looted.txt")
+    {
+        inFile.open(fileName);
+        string line;
+        string stringData = "";
+        while (getline(inFile, line))
+        {
+            if (line.length() > 0)
+            {
+                stringData = line;
+            }
+        }
+
+        if (stringData.length() < 1)
+        {
+            return 0;
+        }
+        else
+        {
+            int data = stoi(stringData);
+            inFile.close();
+            return data;
+        }
+    }
+    else if (fileName == "Rizzler.txt")
+    {
+        inFile.open(fileName);
+        string line;
+        string stringData = "";
+        while (getline(inFile, line))
+        {
+            if (line.length() > 0)
+            {
+                stringData = line;
+            }
+        }
+
+        if (stringData.length() < 1)
+        {
+            return 0;
+        }
+        else
+        {
+            int data = stoi(stringData);
+            inFile.close();
+            return data;
+        }
+    }
+    else if (fileName == "Uzumaki.txt")
+    {
+        inFile.open(fileName);
+        string line;
+        string stringData = "";
+        while (getline(inFile, line))
+        {
+            if (line.length() > 0)
+            {
+                stringData = line;
+            }
+        }
+
+        if (stringData.length() < 1)
+        {
+            return 0;
+        }
+        else
+        {
+            int data = stoi(stringData);
+            inFile.close();
+            return data;
+        }
+    }
+    else
+    {
+        cout << "ERROR IN 'fileName' FOR FUNCTION 'getSaveData'!" << endl;
+    }
+}
+
+int dataProtection(int max)
+{
+    int data = 0;
+    bool boolLoop = false;
+    //get user input
+    //if input does not fit the correct parameters, ask for another try
+    while (boolLoop == false)
+    {
+        cin >> data;
+        if ((data <= max) && (data > 0))
+        {
+            boolLoop = true;
+        }
+        else
+        {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            data = 0;
+            chronoTrigger("pause");
+            cout << "Input not understood; please try again" << endl;
+            chronoTrigger("pause");
+        }
+    }
+    return data;
+}
+void gameOver(Player* player, Enemy* enemy)
+{
+    chronoTrigger("pause");
+    cout << "[Your adventure has ended. Here is your current run data: ]" << endl; chronoTrigger("pause");
+    int deaths = 0 + getSaveData("Deaths.txt");
+    int kills = 0 + getSaveData("Slain.txt");
+    int loots = 0 + getSaveData("Looted.txt");
+    int rizzLost = 0 + getSaveData("Rizzler.txt") - 19;
+    int uzumakiLevel = 0 + getSaveData("Uzumaki.txt");
+    cout << "--------Cumulative Run Stats--------" << endl;
+    cout << "Total Deaths: " << deaths << "." << endl;
+    cout << "Total Mobs Slain: " << kills << "." << endl;
+    cout << "Total Items Looted: " << loots << "." << endl;
+    cout << "Total Rizz: " << rizzLost << "." << endl;
+    cout << "Total Amalgamation Victims: " << uzumakiLevel << "." << endl;
+    cout << "------------------------------------" << endl;
+
+    exit(main());
+}
